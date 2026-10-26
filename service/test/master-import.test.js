@@ -104,9 +104,20 @@ test("template and bulk import for every visible master", async () => {
     ids.customer.push(firstCustomer.id);
     const site = await importRows(admin, "lokasiCustomer", [{ kode_account: accountCode, kode_customer: `IMP-C2-${suffix}`, nama_customer: "Cabang", alamat: "Bandung" }], "kode_customer");
     assert.equal(site[0].account_id, account[0].id);
-    const printer = await importRows(admin, "printer", [{ mp_no: printerCode, serial_number: `IMP-SN-${suffix}`, kode_model: modelCode, kode_gudang: warehouseCode }], "mp_no");
+    const printer = await importRows(admin, "printer", [{
+      mp_no: printerCode, serial_number: `IMP-SN-${suffix}`, kode_model: modelCode, kode_gudang: warehouseCode,
+      tanggal_pembelian: "2026-01-10", tanggal_maintenance_berikutnya: "2027-01-10", interval_maintenance_bulan: 6
+    }], "mp_no");
     assert.equal(printer[0].status, "available");
     assert.equal(printer[0].gudang_id, ids.gudang[0]);
+    assert.equal(printer[0].tanggal_pembelian.toISOString().slice(0, 10), "2026-01-10");
+    assert.equal(printer[0].interval_maintenance_bulan, 6);
+    const oldHeaders = (await get(admin, "/master-import/printer/format")).columns
+      .filter((column) => !["tanggal_pembelian", "tanggal_maintenance_berikutnya", "interval_maintenance_bulan"].includes(column.key))
+      .map((column) => column.key);
+    const oldPreview = await upload(admin, "printer", "preview", [{ mp_no: `IMP-OLD-${suffix}`, kode_model: modelCode, kode_gudang: warehouseCode }], oldHeaders);
+    assert.equal(oldPreview.status, 200);
+    assert.deepEqual(oldPreview.data.errors, []);
     assert.equal((await prisma.riwayat_audit.count({ where: { jenis_dokumen: "barang_printer", id_sumber: printer[0].id, aksi: "buat" } })), 1);
 
     const tonerCode = `IMP-T-${suffix}`;

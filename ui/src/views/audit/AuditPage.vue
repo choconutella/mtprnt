@@ -69,8 +69,8 @@ function formatDateTime(value) {
       <input v-model.trim="auditFilter.user" type="search" placeholder="Nama user" @input="$emit('reset-audit-pagination')" @keyup.enter="$emit('load-audit')" />
     </label>
     <label>
-      <span>No Komplain</span>
-      <input v-model.trim="auditFilter.nomor_pengaduan" type="search" placeholder="PGD..." @input="$emit('reset-audit-pagination')" @keyup.enter="$emit('load-audit')" />
+      <span>No Tiket</span>
+      <input v-model.trim="auditFilter.nomor_tiket" type="search" placeholder="TKT..." @input="$emit('reset-audit-pagination')" @keyup.enter="$emit('load-audit')" />
     </label>
     <label>
       <span>No Surat Tugas</span>
@@ -103,7 +103,7 @@ function formatDateTime(value) {
           </tr>
           <tr v-if="!filteredAuditItems.length">
             <td colspan="4" class="empty-cell">
-              {{ loading ? "Memuat audit..." : auditFilterSiap ? "Audit tidak ditemukan." : "Isi filter tanggal dan user / surat tugas / komplain untuk menampilkan audit." }}
+              {{ loading ? "Memuat audit..." : auditFilterSiap ? "Audit tidak ditemukan." : "Isi filter tanggal dan user / surat tugas / tiket untuk menampilkan audit." }}
             </td>
           </tr>
         </tbody>

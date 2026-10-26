@@ -64,6 +64,9 @@ const formats = {
       column("serial_number", "Serial Number", false, "SN123456", "Unik jika diisi", { max: 150 }),
       column("kode_model", "Kode Model", true, "HP-M404", "Model dan kategorinya harus aktif", { max: 50 }),
       column("kode_gudang", "Kode Gudang Awal", true, "GDG-01", "Gudang harus sudah ada dan aktif", { max: 50 }),
+      column("tanggal_pembelian", "Tanggal Pembelian", false, "2026-10-15", "YYYY-MM-DD; boleh kosong", { type: "date" }),
+      column("tanggal_maintenance_berikutnya", "Maintenance Berikutnya", false, "2027-01-15", "YYYY-MM-DD; isi bersama interval", { type: "date" }),
+      column("interval_maintenance_bulan", "Interval Maintenance (Bulan)", false, "3", "1-120; isi bersama tanggal maintenance", { type: "integer", min: 1, max: 120 }),
       column("keterangan", "Keterangan", false, "Unit baru", "Status awal otomatis available")
     ]
   },

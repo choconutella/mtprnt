@@ -25,6 +25,10 @@ function mapBy(rows, key) { return new Map(rows.map((row) => [row[key], row])); 
 function empty(value) { return value === undefined || value === null || String(value).trim() === ""; }
 
 function normalizeCell(value, column, baris, errors) {
+  if (column.type === "date" && value instanceof Date) {
+    if (Number.isNaN(value.getTime())) errors.push(issue(baris, column.key, "Tanggal tidak valid."));
+    return Number.isNaN(value.getTime()) ? null : value.toISOString().slice(0, 10);
+  }
   if (value && typeof value === "object") {
     errors.push(issue(baris, column.key, "Formula, tanggal, atau objek Excel tidak diterima; gunakan teks biasa."));
     return null;
@@ -34,6 +38,16 @@ function normalizeCell(value, column, baris, errors) {
     return column.type === "boolean" ? true : null;
   }
   const text = String(value).trim();
+  if (column.type === "date") {
+    const date = /^\d{4}-\d{2}-\d{2}$/.test(text) ? new Date(`${text}T00:00:00.000Z`) : null;
+    if (!date || Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== text) errors.push(issue(baris, column.key, "Gunakan tanggal YYYY-MM-DD yang valid."));
+    return text;
+  }
+  if (column.type === "integer") {
+    const number = Number(text);
+    if (!Number.isInteger(number) || number < column.min || number > column.max) errors.push(issue(baris, column.key, `Isi bilangan ${column.min}-${column.max}.`));
+    return number;
+  }
   if (column.type === "boolean") {
     if (["ya", "true", "1", "aktif"].includes(text.toLowerCase())) return true;
     if (["tidak", "false", "0", "nonaktif"].includes(text.toLowerCase())) return false;
@@ -56,7 +70,7 @@ async function parseWorkbook(buffer, format) {
   if (!sheet) throw Object.assign(new Error("Sheet Data tidak ditemukan."), { statusCode: 422 });
   const headers = sheet.getRow(1).values.slice(1).map((value) => String(value || "").trim().toLowerCase());
   const expected = format.columns.map((column) => column.key);
-  const missing = expected.filter((key) => !headers.includes(key));
+  const missing = format.columns.filter((column) => column.required && !headers.includes(column.key)).map((column) => column.key);
   const unexpected = headers.filter((key) => key && !expected.includes(key));
   if (missing.length || unexpected.length || new Set(headers.filter(Boolean)).size !== headers.filter(Boolean).length) {
     throw Object.assign(new Error(`Kolom Excel tidak sesuai template. ${missing.length ? `Kurang: ${missing.join(", ")}. ` : ""}${unexpected.length ? `Tidak dikenal: ${unexpected.join(", ")}.` : ""}`), { statusCode: 422 });
@@ -65,7 +79,7 @@ async function parseWorkbook(buffer, format) {
   const rows = [];
   sheet.eachRow((row, number) => {
     if (number === 1) return;
-    const values = expected.map((key) => row.getCell(headers.indexOf(key) + 1).value);
+    const values = expected.map((key) => headers.includes(key) ? row.getCell(headers.indexOf(key) + 1).value : null);
     if (values.every(empty)) return;
     if (rows.length >= MAX_ROWS) throw Object.assign(new Error(`Maksimal ${MAX_ROWS} baris per file.`), { statusCode: 422 });
     const data = {};
@@ -129,6 +143,9 @@ async function validateRows(tx, kind, rows, initialErrors = []) {
     const existingSerials = await tx.master_printer.findMany({ where: { serial_number: { in: serials } }, select: { serial_number: true } });
     const usedSerials = new Set(existingSerials.map((item) => item.serial_number));
     for (const row of rows) {
+      if (Boolean(row.data.tanggal_maintenance_berikutnya) !== Boolean(row.data.interval_maintenance_bulan)) {
+        errors.push(issue(row.number, "tanggal_maintenance_berikutnya", "Tanggal maintenance dan interval bulan harus diisi bersama."));
+      }
       const model = refs.models.get(row.data.kode_model);
       if (!model?.aktif || !model.master_printer_kategori.aktif) errors.push(issue(row.number, "kode_model", "Model atau kategorinya tidak ditemukan/aktif."));
       if (!refs.warehouses.get(row.data.kode_gudang)?.aktif) errors.push(issue(row.number, "kode_gudang", "Gudang tidak ditemukan atau tidak aktif."));
@@ -163,8 +180,13 @@ async function createRow(tx, req, kind, data, refs, passwordHash) {
     return tx.master_printer_model.create({ data: { ...model, kategori_id: refs.categories.get(kode_kategori).id } });
   }
   if (kind === "printer") {
-    const { kode_model, kode_gudang, ...unit } = data;
-    const created = await tx.master_printer.create({ data: { ...unit, model_id: refs.models.get(kode_model).id, gudang_id: refs.warehouses.get(kode_gudang).id, status: "available" } });
+    const { kode_model, kode_gudang, tanggal_pembelian, tanggal_maintenance_berikutnya, ...unit } = data;
+    const created = await tx.master_printer.create({ data: {
+      ...unit,
+      tanggal_pembelian: tanggal_pembelian ? new Date(`${tanggal_pembelian}T00:00:00.000Z`) : null,
+      tanggal_maintenance_berikutnya: tanggal_maintenance_berikutnya ? new Date(`${tanggal_maintenance_berikutnya}T00:00:00.000Z`) : null,
+      model_id: refs.models.get(kode_model).id, gudang_id: refs.warehouses.get(kode_gudang).id, status: "available"
+    } });
     await catatAuditBarang(tx, req, { jenis_barang: "printer", aksi: "buat", sesudah: created, keterangan: "Unit printer dibuat melalui impor Excel." });
     return created;
   }

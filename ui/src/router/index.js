@@ -20,6 +20,18 @@ const router = createRouter({
       name: "dashboard",
       component: DashboardView,
       meta: { wajibMasuk: true }
+    },
+    {
+      path: "/tiket",
+      name: "tiket",
+      component: DashboardView,
+      meta: { wajibMasuk: true }
+    },
+    {
+      path: "/surat-tugas",
+      name: "surat-tugas",
+      component: DashboardView,
+      meta: { wajibMasuk: true }
     }
   ]
 });

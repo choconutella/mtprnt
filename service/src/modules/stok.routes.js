@@ -35,7 +35,7 @@ router.get("/", izin("stock_data", "view", "warehouse", "kepala-teknisi", "tekni
     prisma.stok_suku_cadang.findMany({ include: { master_gudang: true, master_suku_cadang: true } }),
     prisma.master_toner.findMany({ where: { aktif: true } }),
     prisma.master_suku_cadang.findMany({ where: { aktif: true } }),
-    prisma.master_printer.count({ where: { status: "available" } })
+    prisma.master_printer.count({ where: { status: "available", lokasi_jenis: "gudang", kondisi: "ready" } })
   ]);
 
   return sukses(res, "Stok berhasil diambil.", {

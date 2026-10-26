@@ -1,4 +1,5 @@
 const prisma = require("../config/prisma");
+const { catatAudit } = require("./audit.service");
 
 async function ambilSlaPendingJam() {
   const setting = await prisma.app_pengaturan.findUnique({ where: { kunci: "sla_pending_komplain" } });
@@ -8,12 +9,21 @@ async function ambilSlaPendingJam() {
 async function terapkanSlaPendingKomplain() {
   const jam = await ambilSlaPendingJam();
   const batas = new Date(Date.now() - jam * 60 * 60 * 1000);
-  return prisma.pengaduan.updateMany({
-    where: {
-      status: "new",
-      tanggal_pengaduan: { lte: batas }
-    },
-    data: { status: "pending" }
+  return prisma.$transaction(async (tx) => {
+    const due = await tx.tiket.findMany({ where: { kategori: "komplain", pengaduan_lama_id: null, status: "new", tanggal_transaksi: { lte: batas } } });
+    let count = 0;
+    for (const before of due) {
+      const changed = await tx.tiket.updateMany({ where: { id: before.id, status: "new" }, data: { status: "pending", tanggal_diperbarui: new Date() } });
+      if (!changed.count) continue;
+      count += 1;
+      await catatAudit(tx, { pengguna: { nama: "Sistem" }, headers: {} }, {
+        jenis_dokumen: "tiket", nomor_dokumen: before.nomor_tiket, tabel_sumber: "tiket", id_sumber: before.id,
+        aksi: "ubah_status", status_sebelum: "new", status_sesudah: "pending",
+        data_sebelum: before, data_sesudah: { ...before, status: "pending" },
+        keterangan: `SLA ${jam} jam terlampaui.`
+      });
+    }
+    return { count };
   });
 }
 

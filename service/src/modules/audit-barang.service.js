@@ -15,7 +15,7 @@ async function potretLokasi(tx, row) {
   ]);
   return {
     ...row,
-    lokasi_nama: row.status === "inactive" ? "Dikeluarkan" : row.status === "issued" ? "Dalam surat tugas" : customer?.nama_customer || gudang?.nama_gudang || null,
+    lokasi_nama: row.lokasi_jenis === "transit" ? "Dalam pengiriman" : row.lokasi_jenis === "internal" ? row.lokasi_internal || "Internal" : row.lokasi_jenis === "keluar" ? "Dikeluarkan" : customer?.nama_customer || gudang?.nama_gudang || null,
     account_nama: account?.nama_account || null
   };
 }

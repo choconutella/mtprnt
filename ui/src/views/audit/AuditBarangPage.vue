@@ -20,6 +20,7 @@ const last = computed(() => Math.min(total.value, page.value * pageSize.value));
 const hasFilter = computed(() => Object.values(filter).some(Boolean));
 const labels = {
   mp_no: "MP No", serial_number: "Serial Number", model_id: "Model", status: "Status", lokasi_nama: "Lokasi",
+  tanggal_pembelian: "Tanggal Pembelian", tanggal_maintenance_berikutnya: "Maintenance Berikutnya", interval_maintenance_bulan: "Interval Maintenance (Bulan)", status_operasional: "Status Operasional",
   kode_toner: "Kode Toner", nama_toner: "Nama Toner", warna: "Warna", tipe: "Tipe",
   kode_suku_cadang: "Kode Sparepart", nama_suku_cadang: "Nama Sparepart", aktif: "Aktif", keterangan: "Keterangan"
 };

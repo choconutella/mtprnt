@@ -1,6 +1,6 @@
 <script setup>
 import { computed, onMounted, reactive, ref, watch } from "vue";
-import { useRouter } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import {
   ArcElement,
   BarElement,
@@ -61,10 +61,13 @@ import Toner from "./master-data/Toner.vue";
 import User from "./master-data/User.vue";
 import SettingsPage from "./settings/SettingsPage.vue";
 import SuratTugas from "./surat-tugas/SuratTugas.vue";
+import SuratTugasBaruPage from "./surat-tugas/SuratTugasBaruPage.vue";
+import TiketPage from "./tiket/TiketPage.vue";
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, ArcElement, Filler, Tooltip, Legend);
 
 const router = useRouter();
+const route = useRoute();
 const pengguna = ref(null);
 const statusBackend = ref("Memeriksa");
 const pesanError = ref("");
@@ -72,7 +75,8 @@ const pesanSukses = ref("");
 let toastTimer = null;
 const sidebarTerbuka = ref(false);
 const userMenuTerbuka = ref(false);
-const activeView = ref("dashboard");
+const activeView = ref(route.path === "/tiket" ? "tiket" : route.path === "/surat-tugas" ? "suratTugasBaru" : "dashboard");
+const ticketPrefill = ref(null);
 const loading = ref(false);
 const modalTerbuka = ref(false);
 const modalStokTerbuka = ref(false);
@@ -116,7 +120,7 @@ const auditFilter = reactive({
   tanggal_mulai: "",
   tanggal_selesai: "",
   user: "",
-  nomor_pengaduan: "",
+  nomor_tiket: "",
   nomor_surat_tugas: ""
 });
 const pagination = reactive({
@@ -152,6 +156,7 @@ const options = reactive({
   teknisi: [],
   printerTerpasang: [],
   pengaduan: [],
+  tiket: [],
   suratTugas: []
 });
 const pengaturan = reactive({
@@ -169,8 +174,8 @@ const menu = ref([
     section: "Utama",
     items: [
       { key: "dashboard", nama: "Dashboard", icon: LayoutDashboard },
-      { key: "pengaduan", nama: "Komplain", icon: PhoneCall },
-      { key: "suratTugas", nama: "Surat Tugas", icon: ClipboardList }
+      { key: "tiket", nama: "Tiket", icon: PhoneCall },
+      { key: "suratTugasBaru", nama: "Surat Tugas", icon: ClipboardList }
     ]
   },
   {
@@ -307,13 +312,18 @@ const configs = {
       ["kategori_unit", "Kategori"],
       ["model_unit", "Model"],
       ["lokasi_unit", "Lokasi"],
-      ["status", "Status"]
+      ["tanggal_pembelian", "Pembelian"],
+      ["tanggal_maintenance_berikutnya", "Maintenance Berikutnya"],
+      ["status_operasional", "Status"]
     ],
     fields: [
       field("mp_no", "MP No", "text", true),
       field("serial_number", "Serial Number"),
       relation("kategori_id", "Kategori", "printerKategori", "nama_kategori", true),
       relation("model_id", "Model", "printerModel", "nama_model", true),
+      field("tanggal_pembelian", "Tanggal Pembelian", "date"),
+      field("tanggal_maintenance_berikutnya", "Maintenance Berikutnya", "date"),
+      field("interval_maintenance_bulan", "Interval Maintenance (Bulan)", "number", false, [], { min: 1, max: 120 }),
       field("keterangan", "Keterangan", "textarea"),
       relation("gudang_id", "Gudang Awal", "gudang", "nama_gudang", true),
     ]
@@ -478,9 +488,9 @@ const itemSuratOptions = computed(() => {
 const ringkasanDashboard = computed(() => [
   {
     icon: PhoneCall,
-    label: "Jumlah Komplain",
-    value: options.pengaduan.length,
-    note: "Total komplain tercatat"
+    label: "Jumlah Tiket",
+    value: options.tiket.length,
+    note: "Total tiket tercatat"
   },
   {
     icon: ClipboardList,
@@ -533,8 +543,8 @@ const warnaStatusKomplain = {
 const urutanStatusKomplain = ["new", "pending", "progress", "solved", "cancelled"];
 
 const trenKomplain = computed(() => {
-  const counts = options.pengaduan.reduce((result, item) => {
-    const date = tanggalDari(item, ["tanggal_pengaduan", "tanggal_dibuat", "created_at"]);
+  const counts = options.tiket.reduce((result, item) => {
+    const date = tanggalDari(item, ["tanggal_transaksi", "tanggal_dibuat"]);
     if (!date) return result;
     const key = tanggalKey(date);
     result[key] = (result[key] || 0) + 1;
@@ -548,7 +558,7 @@ const trenKomplain = computed(() => {
 });
 
 const statusKomplain = computed(() => {
-  const counts = options.pengaduan.reduce((result, item) => {
+  const counts = options.tiket.reduce((result, item) => {
     const status = item.status || "new";
     result[status] = (result[status] || 0) + 1;
     return result;
@@ -777,6 +787,8 @@ const crudPageComponents = {
 const currentStockComponent = computed(() => stockPageComponents[activeView.value]);
 const currentCrudComponent = computed(() => crudPageComponents[activeView.value]);
 const pageTitle = computed(() => {
+  if (activeView.value === "tiket") return "Tiket";
+  if (activeView.value === "suratTugasBaru") return "Surat Tugas";
   if (activeView.value === "auditBarang") return "Audit Barang";
   if (activeView.value === "lokasiCustomer") return "Lokasi Customer";
   if (activeView.value === "audit") return "Audit Trail";
@@ -786,9 +798,11 @@ const pageTitle = computed(() => {
   return currentConfig.value?.title || "Ringkasan Aplikasi";
 });
 const pageSubtitle = computed(() => {
+  if (activeView.value === "tiket") return "Delivery, komplain, internal, inbound, dan maintenance.";
+  if (activeView.value === "suratTugasBaru") return "Pelaksanaan pekerjaan dan pergerakan unit.";
   if (activeView.value === "auditBarang") return "Riwayat perubahan printer, toner, dan sparepart.";
   if (activeView.value === "lokasiCustomer") return "Alamat operasional customer di setiap Account.";
-  if (activeView.value === "audit") return "Filter riwayat berdasarkan tanggal, nomor komplain, atau nomor surat tugas.";
+  if (activeView.value === "audit") return "Filter riwayat berdasarkan tanggal, nomor tiket, atau nomor surat tugas.";
   if (activeView.value === "rolePermission") return "Atur hak akses setiap role terhadap modul aplikasi.";
   if (activeView.value === "slaPending") return "Atur batas jam komplain New otomatis menjadi Pending.";
   if (activeStockView.value) return activeStockView.value.subtitle;
@@ -845,13 +859,13 @@ const paginationStart = computed(() => {
 });
 const paginationEnd = computed(() => Math.min(paginationStart.value + pagination.pageSize - 1, currentConfig.value?.serverPagination ? serverTotal.value : filteredItems.value.length));
 const filteredAuditItems = computed(() => {
-  const keyword = [auditFilter.user, auditFilter.nomor_pengaduan, auditFilter.nomor_surat_tugas].join(" ").trim().toLowerCase();
+  const keyword = [auditFilter.user, auditFilter.nomor_tiket, auditFilter.nomor_surat_tugas].join(" ").trim().toLowerCase();
   if (!keyword) return auditItems.value;
   return auditItems.value.filter((item) => textBlob(item).toLowerCase().includes(keyword));
 });
 const auditFilterSiap = computed(() => {
   const adaTanggal = Boolean(auditFilter.tanggal_mulai || auditFilter.tanggal_selesai);
-  const adaTarget = Boolean(auditFilter.user || auditFilter.nomor_pengaduan || auditFilter.nomor_surat_tugas);
+  const adaTarget = Boolean(auditFilter.user || auditFilter.nomor_tiket || auditFilter.nomor_surat_tugas);
   return adaTanggal && adaTarget;
 });
 const auditTotalPages = computed(() => Math.max(1, Math.ceil(filteredAuditItems.value.length / auditPagination.pageSize)));
@@ -1014,6 +1028,9 @@ function pilihMenu(item) {
     return;
   }
   activeView.value = item.key;
+  if (item.key === "tiket") router.push("/tiket");
+  else if (item.key === "suratTugasBaru") router.push("/surat-tugas");
+  else if (route.path !== "/dashboard") router.push("/dashboard");
   if (item.key === "auditBarang") auditBarangTarget.value = null;
   sidebarTerbuka.value = false;
   userMenuTerbuka.value = false;
@@ -1026,6 +1043,29 @@ function pilihMenu(item) {
   pesanSukses.value = "";
   muatHalaman();
 }
+
+function bukaSuratDariTiket(ticket) {
+  ticketPrefill.value = ticket;
+  activeView.value = "suratTugasBaru";
+  router.push("/surat-tugas");
+}
+
+async function bukaKomplainArsip(ticket) {
+  try {
+    activeView.value = "pengaduan";
+    await router.push("/dashboard");
+    await muatHalaman();
+    const response = await api.get(`/pengaduan/${ticket.pengaduan_lama_id}`);
+    await bukaForm(response.data.data);
+  } catch (error) {
+    pesanError.value = error.response?.data?.pesan || "Komplain arsip gagal dibuka.";
+  }
+}
+
+watch(() => route.path, (path) => {
+  if (path === "/tiket") activeView.value = "tiket";
+  else if (path === "/surat-tugas") activeView.value = "suratTugasBaru";
+});
 
 function bukaAuditBarang(jenis, item) {
   const barangJenis = jenis === "sukuCadang" || jenis === "suku_cadang" ? "suku_cadang" : jenis === "stokPrinter" ? "printer" : jenis === "stokToner" ? "toner" : jenis === "stokSparepart" ? "suku_cadang" : jenis;
@@ -1050,7 +1090,7 @@ function valueOf(item, key) {
   if (key === "tipe_account") return item.jumlah_customer > 1 ? "Multisite" : "Single";
   if (key === "kategori_unit") return item.master_printer_model?.master_printer_kategori?.nama_kategori || "-";
   if (key === "model_unit") return [item.master_printer_model?.merek, item.master_printer_model?.nama_model].filter(Boolean).join(" ") || "-";
-  if (key === "lokasi_unit") return item.master_gudang?.nama_gudang || item.master_customer?.nama_customer || (item.status === "issued" ? "Dalam surat tugas" : "-");
+  if (key === "lokasi_unit") return item.status === "issued" ? "Dalam surat tugas" : item.master_customer?.nama_customer || item.master_gudang?.nama_gudang || "-";
   const value = item?.[key];
   if (typeof value === "boolean") return value ? "Aktif" : "Nonaktif";
   if (key.includes("tanggal") && value) return new Date(value).toLocaleDateString("id-ID");
@@ -1111,11 +1151,13 @@ function penggunaLabel(user) {
 function picSurat(item) {
   const primary = item?.teknisi_surat_tugas?.find((row) => row.peran === "utama") || item?.teknisi?.find?.((row) => row.peran === "utama");
   if (primary?.master_pengguna) return penggunaLabel(primary.master_pengguna);
+  if (item?.master_pengguna_pic_warehouse) return penggunaLabel(item.master_pengguna_pic_warehouse);
   const id = primary?.teknisi_id || item?.pic_teknisi_id;
   return penggunaLabel(options.pengguna.find((user) => user.id === id));
 }
 
 function nomorKomplainSurat(item) {
+  if (item?.tiket?.nomor_tiket) return item.tiket.nomor_tiket;
   if (item?.pengaduan?.nomor_pengaduan) return item.pengaduan.nomor_pengaduan;
   return options.pengaduan.find((row) => row.id === item?.pengaduan_id)?.nomor_pengaduan || "-";
 }
@@ -1132,6 +1174,7 @@ function kodeItemSurat(item) {
   return (
     item?.master_toner?.kode_toner ||
     item?.master_printer?.mp_no ||
+    item?.mp_no ||
     item?.master_suku_cadang?.kode_suku_cadang ||
     item?.jenis_barang ||
     "-"
@@ -1150,18 +1193,29 @@ function deskripsiItemSurat(item) {
 }
 
 function catatanPdfSurat(item) {
-  return [item?.catatan_masalah, item?.tindakan, item?.hasil]
+  const unitResults = (item?.surat_tugas_printer || []).filter((line) => line.hasil).map((line) => `${line.mp_no}: ${line.hasil}${line.kondisi_hasil ? ` (${line.kondisi_hasil})` : ""}${line.alasan ? ` - ${line.alasan}` : ""}`);
+  return [item?.catatan_masalah, item?.tindakan, item?.hasil, ...unitResults]
     .filter(Boolean)
     .join("\n");
 }
 
 function templatePdfSurat(item) {
-  const rows = pemakaianSurat(item);
+  const rows = [
+    ...(item?.surat_tugas_printer || []).map((line) => ({
+      master_printer: line.master_printer,
+      mp_no: line.mp_no,
+      serial_number: line.serial_number || line.master_printer?.serial_number,
+      jenis_barang: "printer",
+      jumlah_pakai: 1,
+      keterangan: line.master_printer_model?.nama_model || line.mp_no
+    })),
+    ...pemakaianSurat(item)
+  ];
   const itemRows = rows.length
     ? rows.map((row) => `
         <tr>
           <td>${escapeHtml(kodeItemSurat(row))}</td>
-          <td>Stock</td>
+          <td>${escapeHtml(row.jenis_barang === "printer" ? "Unit Printer" : "Stock")}</td>
           <td>${escapeHtml(deskripsiItemSurat(row))}</td>
           <td>${escapeHtml(row.jumlah_pakai)}</td>
           <td>${escapeHtml(row.serial_number || "No Serial")}</td>
@@ -1220,13 +1274,13 @@ function templatePdfSurat(item) {
       <div>
         <div class="meta-row"><span>Tanggal Surat Tugas</span><span>:</span><span>${escapeHtml(formatTanggalPdf(item.tanggal_jadwal || item.tanggal_dibuat))}</span></div>
         <div class="meta-row"><span>Nomor surat tugas</span><span>:</span><span>${escapeHtml(item.nomor_surat_tugas)}</span></div>
-        <div class="meta-row"><span>Jenis tugas</span><span>:</span><span>${escapeHtml(item.jenis_pekerjaan || "Service")}</span></div>
-        <div class="meta-row"><span>MP No / Serial</span><span>:</span><span>${escapeHtml([item.master_printer?.mp_no || item.mp_no, item.master_printer?.serial_number].filter(Boolean).join(" / ") || "-")}</span></div>
+        <div class="meta-row"><span>Jenis tugas</span><span>:</span><span>${escapeHtml(item.jenis_tugas || item.jenis_pekerjaan || "Service")}</span></div>
+        <div class="meta-row"><span>MP No / Serial</span><span>:</span><span>${escapeHtml((item.surat_tugas_printer || []).map((line) => [line.mp_no, line.serial_number || line.master_printer?.serial_number].filter(Boolean).join(" / ")).join(", ") || [item.master_printer?.mp_no || item.mp_no, item.master_printer?.serial_number].filter(Boolean).join(" / ") || "-")}</span></div>
       </div>
       <div>
         <div class="meta-row"><span>Request By</span><span>:</span><span>${escapeHtml(picSurat(item))}</span></div>
         <div class="meta-row"><span>Request Address</span><span>:</span><span>${escapeHtml(alamatSurat(item))}</span></div>
-        <div class="meta-row"><span>No. Komplain</span><span>:</span><span>${escapeHtml(nomorKomplainSurat(item))}</span></div>
+        <div class="meta-row"><span>No. Tiket</span><span>:</span><span>${escapeHtml(nomorKomplainSurat(item))}</span></div>
       </div>
     </section>
 
@@ -1265,21 +1319,22 @@ async function cetakSuratTugas(item) {
     pesanError.value = "PDF surat tugas baru bisa dicetak setelah status Ready to Print.";
     return;
   }
+  const popup = window.open("", "_blank", "width=1200,height=800");
+  if (!popup) {
+    pesanError.value = "Popup diblokir browser. Izinkan popup untuk mencetak PDF surat tugas.";
+    return;
+  }
   try {
     loading.value = true;
     const response = await api.get(`/surat-tugas/${item.id}`);
     const detail = response.data.data;
-    const popup = window.open("", "_blank", "width=1200,height=800");
-    if (!popup) {
-      pesanError.value = "Popup diblokir browser. Izinkan popup untuk mencetak PDF surat tugas.";
-      return;
-    }
     popup.document.open();
     popup.document.write(templatePdfSurat(detail));
     popup.document.close();
     popup.focus();
     setTimeout(() => popup.print(), 350);
   } catch (error) {
+    popup.close();
     pesanError.value = error.response?.data?.pesan || "PDF surat tugas gagal dibuat.";
   } finally {
     loading.value = false;
@@ -1371,7 +1426,7 @@ function canRunSuratAction(item, action) {
 }
 
 function canPrintSuratItem(item) {
-  return currentConfig.value?.flow === "suratTugas" && statusBisaPrint(item?.status);
+  return (activeView.value === "suratTugasBaru" || currentConfig.value?.flow === "suratTugas") && statusBisaPrint(item?.status);
 }
 
 function canTambahItemSurat() {
@@ -1418,6 +1473,8 @@ function tampilkanFieldForm(item) {
 }
 
 function fieldWajib(item) {
+  if (activeView.value === "printer" && item.name === "tanggal_maintenance_berikutnya") return Boolean(form.interval_maintenance_bulan);
+  if (activeView.value === "printer" && item.name === "interval_maintenance_bulan") return Boolean(form.tanggal_maintenance_berikutnya);
   return item.required;
 }
 
@@ -1624,10 +1681,11 @@ function payloadForm() {
     if (item.name === "gudang_id" && ["printer", "toner", "sukuCadang"].includes(activeView.value) && modeForm.value === "edit") return;
     if (item.name === "kategori_id" && activeView.value === "printer") return;
     if (item.name === "status" && activeView.value === "suratTugas" && modeForm.value === "edit") return;
+    if (activeView.value === "suratTugas" && form.tanggal_maintenance_otomatis && ["account_id", "customer_id", "printer_id", "jenis_pekerjaan", "tanggal_jadwal"].includes(item.name)) return;
     const value = form[item.name];
     if (item.readonly && (value === "" || value == null)) return;
     if (item.name === "password" && modeForm.value === "edit" && !value) return;
-    if (item.type === "number") data[item.name] = value === "" || value == null ? 0 : Number(value);
+    if (item.type === "number") data[item.name] = value === "" || value == null ? (item.name === "interval_maintenance_bulan" ? null : 0) : Number(value);
     else if (item.type === "checkbox") data[item.name] = Boolean(value);
     else data[item.name] = value === "" ? null : value;
   });
@@ -1949,9 +2007,10 @@ async function muatOptions() {
     ["gudang", "/gudang"],
     ["pengguna", "/pengguna"],
     ["pengaduan", "/pengaduan"],
+    ["tiket", "/tiket"],
     ["suratTugas", "/surat-tugas"]
   ];
-  const pagedOptions = new Set(["account", "printerKategori", "printerModel", "toner", "sukuCadang", "gudang"]);
+  const pagedOptions = new Set(["account", "printerKategori", "printerModel", "toner", "sukuCadang", "gudang", "tiket"]);
   const responses = await Promise.allSettled(loaders.map(([key, endpoint]) => ambilDaftarOptions(endpoint, pagedOptions.has(key))));
   const gagalWajib = [];
   responses.forEach((result, index) => {
@@ -2130,7 +2189,7 @@ function resetAuditFilter() {
     tanggal_mulai: "",
     tanggal_selesai: "",
     user: "",
-    nomor_pengaduan: "",
+    nomor_tiket: "",
     nomor_surat_tugas: ""
   });
   auditItems.value = [];
@@ -2310,6 +2369,20 @@ onMounted(muatProfil);
         :stok-barang="stokBarang"
       />
 
+      <TiketPage
+        v-else-if="activeView === 'tiket'"
+        :role="roleAktif"
+        @open-surat="bukaSuratDariTiket"
+        @open-legacy="bukaKomplainArsip"
+      />
+
+      <SuratTugasBaruPage
+        v-else-if="activeView === 'suratTugasBaru'"
+        :role="roleAktif"
+        :ticket-prefill="ticketPrefill"
+        @print="cetakSuratTugas"
+      />
+
       <SettingsPage
         v-else-if="['rolePermission', 'slaPending'].includes(activeView)"
         :active-section="activeView"
@@ -2479,13 +2552,13 @@ onMounted(muatProfil);
             <template v-else>
               <span>{{ item.label }}</span>
               <textarea v-if="item.type === 'textarea'" v-model="form[item.name]" :required="fieldWajib(item)" rows="3" />
-              <select v-else-if="item.type === 'select'" v-model="form[item.name]" :required="fieldWajib(item)" @change="handleFieldChange(item.name)">
+              <select v-else-if="item.type === 'select'" v-model="form[item.name]" :required="fieldWajib(item)" :disabled="activeView === 'suratTugas' && form.tanggal_maintenance_otomatis && item.name === 'jenis_pekerjaan'" @change="handleFieldChange(item.name)">
                 <option value="">Pilih</option>
                 <option v-for="option in item.options" :key="option" :value="option">{{ labelStatus(option) }}</option>
               </select>
               <template v-else-if="item.type === 'relation'">
                 <input v-if="item.name === 'printer_id'" v-model="installedPrinterSearch" type="search" placeholder="Cari MP No / Serial" @input="muatInstalledPrinterOptions" />
-                <select v-model="form[item.name]" :required="fieldWajib(item)" @change="handleFieldChange(item.name)">
+                <select v-model="form[item.name]" :required="fieldWajib(item)" :disabled="activeView === 'suratTugas' && form.tanggal_maintenance_otomatis && ['account_id', 'customer_id', 'printer_id'].includes(item.name)" @change="handleFieldChange(item.name)">
                   <option value="">Pilih</option>
                   <option v-for="option in relationOptions(item)" :key="option.id" :value="option.id">
                     {{ labelOption(item.source, option, item.optionLabel) }}
@@ -2497,7 +2570,9 @@ onMounted(muatProfil);
                 v-model="form[item.name]"
                 :type="item.type"
                 :required="fieldWajib(item) && !(modeForm === 'edit' && item.name === 'password')"
-                :readonly="item.readonly"
+                :readonly="item.readonly || (activeView === 'suratTugas' && form.tanggal_maintenance_otomatis && item.name === 'tanggal_jadwal')"
+                :min="item.min"
+                :max="item.max"
                 :placeholder="item.placeholder"
               />
             </template>

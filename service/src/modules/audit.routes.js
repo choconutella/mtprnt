@@ -13,17 +13,17 @@ const querySchema = z.object({
   tanggal_mulai: z.string().optional(),
   tanggal_selesai: z.string().optional(),
   user: z.string().optional(),
-  nomor_pengaduan: z.string().optional(),
+  nomor_tiket: z.string().optional(),
   nomor_surat_tugas: z.string().optional(),
   batas: z.coerce.number().int().min(1).max(200).default(100)
 });
 
 const eventWorkflow = [
-  { kode: "A01", dokumen: "pengaduan", aksi: "buat", nama: "Komplain Baru Dibuat" },
-  { kode: "A02", dokumen: "pengaduan", aksi: "ubah", nama: "Komplain Diperbarui" },
-  { kode: "A03", dokumen: "pengaduan", aksi: "ubah_status", nama: "Status Komplain Berubah" },
-  { kode: "A04", dokumen: "pengaduan", aksi: "resolve", nama: "Komplain Diselesaikan" },
-  { kode: "A05", dokumen: "pengaduan", aksi: "batalkan", nama: "Komplain Dibatalkan" },
+  { kode: "A01", dokumen: "tiket", aksi: "buat", nama: "Tiket Dibuat" },
+  { kode: "A02", dokumen: "tiket", aksi: "ubah", nama: "Tiket Diperbarui" },
+  { kode: "A03", dokumen: "tiket", aksi: "ubah_status", nama: "Status Tiket Berubah" },
+  { kode: "A04", dokumen: "tiket", aksi: "resolve", nama: "Tiket Diselesaikan" },
+  { kode: "A05", dokumen: "tiket", aksi: "batalkan", nama: "Tiket Dibatalkan" },
   { kode: "B01", dokumen: "surat_tugas", aksi: "buat", nama: "Surat Tugas Baru Dibuat" },
   { kode: "B02", dokumen: "surat_tugas", aksi: "assign_teknisi", nama: "Teknisi Ditugaskan" },
   { kode: "B03", dokumen: "surat_tugas", aksi: "start", nama: "Surat Tugas Dimulai" },
@@ -33,11 +33,17 @@ const eventWorkflow = [
   { kode: "B07", dokumen: "surat_tugas", aksi: "selesai_teknisi", nama: "Pekerjaan Teknisi Selesai" },
   { kode: "B08", dokumen: "surat_tugas", aksi: "validasi_warehouse", nama: "Validasi Warehouse" },
   { kode: "B09", dokumen: "surat_tugas", aksi: "resolve", nama: "Validasi Kepala Teknisi" },
-  { kode: "B10", dokumen: "surat_tugas", aksi: "batalkan", nama: "Surat Tugas Dibatalkan" }
+  { kode: "B10", dokumen: "surat_tugas", aksi: "batalkan", nama: "Surat Tugas Dibatalkan" },
+  { kode: "B11", dokumen: "surat_tugas", aksi: "keluar_gudang", nama: "Barang Keluar Gudang" },
+  { kode: "B12", dokumen: "surat_tugas", aksi: "serah_terima", nama: "Serah Terima Unit" },
+  { kode: "B13", dokumen: "surat_tugas", aksi: "terima_gudang", nama: "Unit Diterima Gudang" },
+  { kode: "B14", dokumen: "surat_tugas", aksi: "hasil_unit", nama: "Hasil Unit Dicatat" },
+  { kode: "B15", dokumen: "surat_tugas", aksi: "selesai_pekerjaan", nama: "Pekerjaan Selesai" }
 ];
 
 function eventDariAudit(item) {
-  const event = eventWorkflow.find((row) => row.dokumen === item.jenis_dokumen && row.aksi === item.aksi);
+  const dokumen = item.jenis_dokumen === "pengaduan" ? "tiket" : item.jenis_dokumen;
+  const event = eventWorkflow.find((row) => row.dokumen === dokumen && row.aksi === item.aksi);
   return event || {
     kode: "Z99",
     nama: item.aksi || "Event Lain"
@@ -56,7 +62,7 @@ function formatAudit(item) {
     event_kode: event.kode,
     event_nama: event.nama,
     event_label: event.nama,
-    tabel_keterangan: `${item.jenis_dokumen} ${item.nomor_dokumen}: ${item.keterangan || event.nama}${statusText}`
+    tabel_keterangan: `${item.jenis_dokumen === "pengaduan" ? "tiket arsip" : item.jenis_dokumen} ${item.nomor_dokumen}: ${item.keterangan || event.nama}${statusText}`
   };
 }
 
@@ -66,9 +72,9 @@ router.get("/", izin("audit_trail", "view", "sales-admin", "kepala-teknisi", "wa
   const OR = [];
 
   const adaTanggal = Boolean(query.tanggal_mulai || query.tanggal_selesai);
-  const adaTarget = Boolean(query.user || query.nomor_pengaduan || query.nomor_surat_tugas);
+  const adaTarget = Boolean(query.user || query.nomor_tiket || query.nomor_surat_tugas);
   if (!adaTanggal || !adaTarget) {
-    return sukses(res, "Lengkapi filter tanggal dan user/surat tugas/komplain untuk menampilkan audit.", []);
+    return sukses(res, "Lengkapi filter tanggal dan user/surat tugas/tiket untuk menampilkan audit.", []);
   }
 
   if (query.tanggal_mulai || query.tanggal_selesai) {
@@ -77,10 +83,10 @@ router.get("/", izin("audit_trail", "view", "sales-admin", "kepala-teknisi", "wa
     if (query.tanggal_selesai) where.tanggal_audit.lte = new Date(`${query.tanggal_selesai}T23:59:59.999`);
   }
 
-  if (query.nomor_pengaduan) {
+  if (query.nomor_tiket) {
     OR.push({
-      jenis_dokumen: "pengaduan",
-      nomor_dokumen: { contains: query.nomor_pengaduan, mode: "insensitive" }
+      jenis_dokumen: { in: ["tiket", "pengaduan"] },
+      nomor_dokumen: { contains: query.nomor_tiket, mode: "insensitive" }
     });
   }
 
@@ -105,16 +111,16 @@ router.get("/", izin("audit_trail", "view", "sales-admin", "kepala-teknisi", "wa
   return sukses(res, "Riwayat audit berhasil diambil.", items.map(formatAudit));
 }));
 
-router.get("/pengaduan/:nomor_pengaduan", izin("audit_trail", "view", "sales-admin", "kepala-teknisi", "warehouse"), asyncHandler(async (req, res) => {
+router.get("/tiket/:nomor_tiket", izin("audit_trail", "view", "sales-admin", "kepala-teknisi", "warehouse"), asyncHandler(async (req, res) => {
   const items = await prisma.riwayat_audit.findMany({
     where: {
-      jenis_dokumen: "pengaduan",
-      nomor_dokumen: req.params.nomor_pengaduan
+      jenis_dokumen: { in: ["tiket", "pengaduan"] },
+      nomor_dokumen: req.params.nomor_tiket
     },
     orderBy: { tanggal_audit: "asc" }
   });
 
-  return sukses(res, "Riwayat audit pengaduan berhasil diambil.", items.map(formatAudit));
+  return sukses(res, "Riwayat audit tiket berhasil diambil.", items.map(formatAudit));
 }));
 
 router.get("/surat-tugas/:nomor_surat_tugas", izin("audit_trail", "view", "sales-admin", "kepala-teknisi", "warehouse"), asyncHandler(async (req, res) => {

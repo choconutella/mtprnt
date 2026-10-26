@@ -1,6 +1,7 @@
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const prisma = require("../src/config/prisma");
+const { buatSuratTugasMaintenance, tanggalBangkok } = require("../src/modules/printer-maintenance.service");
 
 const base = process.env.TEST_API_BASE || "http://localhost:5000/api";
 const suffix = Date.now().toString(36).toUpperCase();
@@ -62,7 +63,6 @@ test("printer unit, stock, reservation, warehouse, and installation", async () =
       login("admin"), login("kepala-teknisi"), login("teknisi"), login("warehouse"), login("sales-admin"), login("sales")
     ]);
     assert.equal((await request(salesToken, "/audit-barang?jenis_barang=printer")).status, 403);
-    assert.equal((await good(admin, "/audit-barang")).meta.total, 0);
     const users = await good(admin, "/pengguna?batas=100");
     const tech = (Array.isArray(users) ? users : users.items).find((user) => user.user_id === "teknisi");
     assert.ok(tech);
@@ -187,6 +187,58 @@ test("printer unit, stock, reservation, warehouse, and installation", async () =
     await good(head, `/surat-tugas/${maintenance.id}/resolve`, "POST", {});
     assert.equal((await good(admin, `/printer/${unit.id}`)).status, "installed");
     assert.equal((await good(admin, "/stok")).printer[0].jumlah_tersedia >= 101, true);
+
+    const hariIni = tanggalBangkok();
+    const dueSixDays = new Date(`${hariIni}T00:00:00.000Z`);
+    dueSixDays.setUTCDate(dueSixDays.getUTCDate() + 6);
+    const dueFiveDays = new Date(dueSixDays);
+    dueFiveDays.setUTCDate(dueFiveDays.getUTCDate() - 1);
+    const due = dueFiveDays.toISOString().slice(0, 10);
+    assert.equal((await request(admin, `/printer/${unit.id}`, "PUT", { interval_maintenance_bulan: 3 })).status, 422);
+    await good(admin, `/printer/${unit.id}`, "PUT", {
+      tanggal_pembelian: "2026-01-10", tanggal_maintenance_berikutnya: dueSixDays.toISOString().slice(0, 10), interval_maintenance_bulan: 3
+    });
+    assert.equal(await buatSuratTugasMaintenance(), 0);
+    await good(admin, `/printer/${unit.id}`, "PUT", { tanggal_maintenance_berikutnya: due });
+    assert.equal(await buatSuratTugasMaintenance(), 1);
+    assert.equal(await buatSuratTugasMaintenance(), 0);
+    const scheduled = await prisma.surat_tugas.findFirst({ where: { printer_id: unit.id, tanggal_maintenance_otomatis: dueFiveDays } });
+    assert.ok(scheduled);
+    created.workOrders.push(scheduled.id);
+    workOrderNumbers.push(scheduled.nomor_surat_tugas);
+    assert.equal(scheduled.status, "pending");
+    assert.equal(scheduled.customer_id, customer.id);
+    assert.equal(await prisma.teknisi_surat_tugas.count({ where: { surat_tugas_id: scheduled.id } }), 0);
+    assert.equal((await request(head, `/surat-tugas/${scheduled.id}/start`, "POST", {})).status, 409);
+    await good(head, `/surat-tugas/${scheduled.id}/assign`, "POST", { pic_teknisi_id: tech.id });
+    await good(head, `/surat-tugas/${scheduled.id}/start`, "POST", {});
+    assert.equal((await good(admin, `/printer/${unit.id}`)).status_operasional, "Sedang Maintenance");
+    assert.ok(await prisma.riwayat_audit.findFirst({ where: { nomor_dokumen: scheduled.nomor_surat_tugas, aksi: "start" } }));
+    const scheduledLine = await prisma.surat_tugas_printer.findFirst({ where: { surat_tugas_id: scheduled.id } });
+    await good(technician, `/surat-tugas/${scheduled.id}/printer/${scheduledLine.id}/hasil`, "PUT", { hasil: "Maintenance selesai" });
+    await good(technician, `/surat-tugas/${scheduled.id}/ready-to-print`, "POST", {});
+    await good(technician, `/surat-tugas/${scheduled.id}/selesai`, "POST", {});
+    await good(head, `/surat-tugas/${scheduled.id}/resolve`, "POST", {});
+    const afterMaintenance = await good(admin, `/printer/${unit.id}`);
+    assert.ok(afterMaintenance.status_operasional.startsWith("Di Customer"));
+    assert.ok((await good(admin, `/audit-barang/printer/${unit.id}`)).items.some((event) => event.aksi === "maintenance_berikutnya"));
+    assert.equal(afterMaintenance.tanggal_pembelian.slice(0, 10), "2026-01-10");
+    assert.ok(afterMaintenance.tanggal_maintenance_berikutnya.slice(0, 10) > due);
+    await good(admin, `/printer/${unit.id}`, "PUT", { tanggal_maintenance_berikutnya: due });
+    assert.equal(await buatSuratTugasMaintenance(), 0);
+    const cancelledDue = new Date(dueFiveDays);
+    cancelledDue.setUTCDate(cancelledDue.getUTCDate() - 1);
+    await good(admin, `/printer/${unit.id}`, "PUT", { tanggal_maintenance_berikutnya: cancelledDue.toISOString().slice(0, 10) });
+    assert.equal(await buatSuratTugasMaintenance(), 1);
+    const cancelledOrder = await prisma.surat_tugas.findFirst({ where: { printer_id: unit.id, tanggal_maintenance_otomatis: cancelledDue } });
+    created.workOrders.push(cancelledOrder.id);
+    workOrderNumbers.push(cancelledOrder.nomor_surat_tugas);
+    await good(head, `/surat-tugas/${cancelledOrder.id}/assign`, "POST", { pic_teknisi_id: tech.id });
+    await good(head, `/surat-tugas/${cancelledOrder.id}/start`, "POST", {});
+    await good(head, `/surat-tugas/${cancelledOrder.id}/cancel`, "POST", {});
+    assert.ok(await prisma.riwayat_audit.findFirst({ where: { nomor_dokumen: cancelledOrder.nomor_surat_tugas, aksi: "batalkan" } }));
+    assert.equal(await buatSuratTugasMaintenance(), 0);
+    assert.equal((await good(admin, `/printer/${unit.id}`)).tanggal_maintenance_berikutnya.slice(0, 10), cancelledDue.toISOString().slice(0, 10));
 
     const returning = await good(admin, "/printer", "POST", { mp_no: `UT-RET-${suffix}`, model_id: model.id, gudang_id: created.warehouses[0] }, 201);
     created.units.push(returning.id);

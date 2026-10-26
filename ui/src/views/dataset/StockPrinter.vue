@@ -129,7 +129,7 @@ onMounted(() => { loadOptions(); load(); });
       <div class="table-wrap"><table><thead><tr><th>MP No</th><th>Serial</th><th>Kategori</th><th>Model</th><th>Lokasi</th><th>Status</th><th v-if="canManageStock || canViewAuditBarang">Aksi</th></tr></thead>
         <tbody>
           <tr v-for="row in rows" :key="row.id">
-            <td>{{ row.mp_no }}</td><td>{{ row.serial_number || "-" }}</td><td>{{ row.master_printer_model?.master_printer_kategori?.nama_kategori || "-" }}</td><td>{{ row.master_printer_model?.merek }} {{ row.master_printer_model?.nama_model }}</td><td>{{ locationLabel(row) }}</td><td>{{ statusLabel(row.status) }}</td>
+          <td>{{ row.mp_no }}</td><td>{{ row.serial_number || "-" }}</td><td>{{ row.master_printer_model?.master_printer_kategori?.nama_kategori || "-" }}</td><td>{{ row.master_printer_model?.merek }} {{ row.master_printer_model?.nama_model }}</td><td>{{ locationLabel(row) }}</td><td>{{ row.status_operasional || statusLabel(row.status) }}</td>
             <td v-if="canManageStock || canViewAuditBarang"><div class="row-actions">
               <button v-if="canViewAuditBarang" class="icon-action" type="button" title="Riwayat unit" aria-label="Riwayat unit" @click="emit('open-history', row)"><History :size="16" /></button>
               <button v-if="row.status === 'available'" class="icon-action" type="button" title="Pindah gudang" @click="open(row, 'transfer')"><ArrowRightLeft :size="16" /></button>

@@ -42,13 +42,14 @@ async function kunciAccount(tx, accountId) {
 }
 
 async function relasiCustomer(tx, customerId) {
-  const [kontrak, printer, komplain, surat] = await Promise.all([
+  const [kontrak, printer, komplain, surat, tiket] = await Promise.all([
     tx.master_kontrak.count({ where: { customer_id: customerId } }),
     tx.master_printer.count({ where: { customer_id: customerId } }),
     tx.pengaduan.count({ where: { customer_id: customerId } }),
-    tx.surat_tugas.count({ where: { customer_id: customerId } })
+    tx.surat_tugas.count({ where: { customer_id: customerId } }),
+    tx.tiket.count({ where: { customer_id: customerId } })
   ]);
-  return kontrak + printer + komplain + surat;
+  return kontrak + printer + komplain + surat + tiket;
 }
 
 async function daftarCustomer(tx, accountId) {

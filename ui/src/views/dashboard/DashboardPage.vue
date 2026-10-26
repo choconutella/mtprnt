@@ -34,7 +34,7 @@ function chartTotal(data) {
       <div class="chart-heading">
         <div>
           <span>Line Chart</span>
-          <h2>Tren Komplain</h2>
+          <h2>Tren Tiket</h2>
         </div>
         <strong>{{ chartTotal(lineChartData) }}</strong>
       </div>
@@ -47,7 +47,7 @@ function chartTotal(data) {
       <div class="chart-heading">
         <div>
           <span>Donut Chart</span>
-          <h2>Status Komplain</h2>
+          <h2>Status Tiket</h2>
         </div>
         <strong>{{ chartTotal(statusDonutData) }}</strong>
       </div>

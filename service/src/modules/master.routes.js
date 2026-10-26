@@ -61,6 +61,8 @@ const skemaSukuCadang = z.object({
 
 const kontrak = buatCrudRouter({
   model: "master_kontrak",
+  roleLihat: ["admin", "sales-admin", "kepala-teknisi", "warehouse"],
+  staticRoleView: true,
   kolomCari: ["nomor_kontrak", "jenis_layanan", "status"],
   skemaBuat: z.object({
     customer_id: z.string().uuid(),
@@ -80,7 +82,7 @@ const toner = buatCrudRouter({
   auditBarangJenis: "toner",
   ...hardDeleteToner,
   deleteItem: (item, req, tx) => hapusMasterDenganStokKosong("master_toner", "stok_toner", "toner_id", item, tx),
-  roleLihat: ["admin", "kepala-teknisi", "teknisi", "warehouse"],
+  roleLihat: ["admin", "sales-admin", "kepala-teknisi", "teknisi", "warehouse"],
   staticRoleView: true,
   kolomCari: ["kode_toner", "nama_toner", "warna", "tipe"],
   skemaBuat: skemaToner,

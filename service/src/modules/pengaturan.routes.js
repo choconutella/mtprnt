@@ -11,7 +11,7 @@ const router = express.Router();
 const ROLES = ["admin", "sales", "sales-admin", "kepala-teknisi", "teknisi", "warehouse"];
 const MODULES = [
   { key: "dashboard", label: "Dashboard" },
-  { key: "komplain", label: "Komplain" },
+  { key: "tiket", label: "Tiket" },
   { key: "surat_tugas", label: "Surat Tugas" },
   { key: "item_surat_tugas", label: "Item Surat Tugas" },
   { key: "stock_data", label: "Stock Data" },
@@ -44,11 +44,11 @@ function fullAccess(role, modul) {
   }
 
   const base = { role, modul, can_view: false, can_create: false, can_update: false, can_delete: false, can_resolve: false, can_workflow: false };
-  if (role === "sales") return { ...base, can_view: ["dashboard", "komplain", "surat_tugas"].includes(modul) };
-  if (role === "sales_admin") return { ...base, can_view: true, can_create: modul === "komplain", can_update: modul === "komplain", can_delete: modul === "komplain", can_resolve: modul === "komplain", can_workflow: modul === "komplain" };
-  if (role === "kepala_teknisi") return { ...base, can_view: true, can_create: modul === "surat_tugas", can_update: modul === "surat_tugas", can_resolve: modul === "surat_tugas", can_workflow: modul === "surat_tugas" };
-  if (role === "teknisi") return { ...base, can_view: ["dashboard", "surat_tugas", "item_surat_tugas", "stock_data"].includes(modul), can_create: modul === "item_surat_tugas", can_update: ["surat_tugas", "item_surat_tugas"].includes(modul), can_workflow: ["surat_tugas", "item_surat_tugas"].includes(modul) };
-  if (role === "warehouse") return { ...base, can_view: ["dashboard", "surat_tugas", "item_surat_tugas", "stock_data"].includes(modul), can_create: modul === "stock_data", can_update: modul === "stock_data", can_delete: modul === "stock_data", can_workflow: ["surat_tugas", "stock_data"].includes(modul) };
+  if (role === "sales") return { ...base, can_view: ["dashboard", "tiket", "surat_tugas"].includes(modul) };
+  if (role === "sales_admin") return { ...base, can_view: true, can_create: modul === "tiket", can_update: modul === "tiket", can_resolve: modul === "tiket", can_workflow: modul === "tiket" };
+  if (role === "kepala_teknisi") return { ...base, can_view: true, can_create: ["tiket", "surat_tugas"].includes(modul), can_update: ["tiket", "surat_tugas"].includes(modul), can_resolve: ["tiket", "surat_tugas"].includes(modul), can_workflow: modul === "surat_tugas" };
+  if (role === "teknisi") return { ...base, can_view: ["dashboard", "tiket", "surat_tugas", "item_surat_tugas", "stock_data"].includes(modul), can_create: modul === "item_surat_tugas", can_update: ["surat_tugas", "item_surat_tugas"].includes(modul), can_workflow: ["surat_tugas", "item_surat_tugas"].includes(modul) };
+  if (role === "warehouse") return { ...base, can_view: ["dashboard", "tiket", "surat_tugas", "item_surat_tugas", "stock_data"].includes(modul), can_create: ["tiket", "surat_tugas", "stock_data"].includes(modul), can_update: ["tiket", "stock_data"].includes(modul), can_resolve: modul === "tiket", can_delete: modul === "stock_data", can_workflow: ["surat_tugas", "stock_data"].includes(modul) };
   return base;
 }
 
