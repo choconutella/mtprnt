@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { navigationGroups } from '~/data/navigation'
+import logoUrl from '~/assets/img/logo-multi-transparent.png'
 
 const open = defineModel<boolean>({ default: false })
 const emit = defineEmits<{ logout: [] }>()
@@ -16,24 +17,16 @@ function handleLogout() {
 
 <template>
   <aside
-    class="fixed inset-y-0 start-0 z-40 flex w-72 -translate-x-full flex-col border-e border-default bg-default transition-transform duration-200 lg:translate-x-0"
+    class="fixed inset-y-0 inset-s-0 z-40 flex w-72 -translate-x-full flex-col border-e border-default bg-default transition-transform duration-200 lg:translate-x-0"
     :class="open && 'translate-x-0'"
     aria-label="Navigasi utama"
   >
     <div class="flex h-16 items-center gap-3 border-b border-default px-5">
-      <div class="flex size-9 items-center justify-center rounded-lg bg-primary text-white">
-        <UIcon
-          name="i-lucide-printer"
-          class="size-5"
-        />
-      </div>
-      <div>
-        <p class="font-semibold text-highlighted">
-          MultiPrint
-        </p><p class="text-xs text-dimmed">
-          Operations workspace
-        </p>
-      </div>
+      <img
+        :src="logoUrl"
+        alt="MultiPrint"
+        class="h-auto w-3/4 object-contain object-left"
+      >
       <UButton
         class="ms-auto lg:hidden"
         color="neutral"

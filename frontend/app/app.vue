@@ -1,16 +1,18 @@
 <script setup lang="ts">
+import faviconUrl from '~/assets/img/favicon.png'
+
 useHead({
   meta: [
     { name: 'viewport', content: 'width=device-width, initial-scale=1' }
   ],
   link: [
-    { rel: 'icon', href: '/favicon.ico' }
+    { rel: 'icon', type: 'image/png', href: faviconUrl }
   ],
   htmlAttrs: { lang: 'id' }
 })
 
-const title = 'MultiPrint Operations'
-const description = 'Workspace operasional MultiPrint untuk tiket, surat tugas, printer, stok, dan master data.'
+const title = 'MultiPrint'
+const description = 'Workspace operasional MultiPrint untuk tiket, surat tugas, stok, dan master data.'
 
 useSeoMeta({
   title,

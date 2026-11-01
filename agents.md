@@ -31,6 +31,16 @@ Bertindak sebagai implementation partner yang konservatif, menjaga kompatibilita
 - Pisahkan komponen UI, halaman, composable, dan client API secara jelas.
 - Sediakan state loading, error, empty, permission, dan validasi untuk alur operasional utama.
 
+### Selection dan Pencarian Master Data
+
+- Selection yang mengambil data master berukuran besar wajib memakai pencarian server-side melalui parameter `cari` atau parameter pencarian resmi pada kontrak API.
+- Jangan memuat seluruh master data hanya untuk mengisi opsi selection.
+- Saat awal dibuka, tampilkan paling banyak 20 hasil pertama; gunakan pagination atau batas hasil yang wajar.
+- Terapkan debounce sekitar 300 ms pada input pencarian agar request tidak dikirim pada setiap ketikan.
+- Tampilkan state loading, empty, dan error pada selection/search.
+- Pertahankan item yang sedang terpilih ketika hasil pencarian berubah agar label selection tidak hilang.
+- Gunakan `USelectMenu` atau komponen Nuxt UI yang mendukung input pencarian; jangan membuat endpoint atau parameter baru tanpa approval.
+
 ## Verifikasi
 
 - Sebelum perubahan frontend selesai, jalankan pemeriksaan dan test yang tersedia di `frontend/`.

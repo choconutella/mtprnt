@@ -1,0 +1,3 @@
+<template>
+  <AuditPage />
+</template>

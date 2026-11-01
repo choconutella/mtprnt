@@ -3,7 +3,7 @@
     "name": "multiprint",
     "summary": "Frontend Nuxt/Vue/Nuxt UI untuk operasi printer, tiket, surat tugas, stok, dan master data yang mengonsumsi service existing."
   },
-  "updated_at": "2026-11-01T00:00:00Z",
+  "updated_at": "2026-11-01T15:30:00Z",
   "active_task_id": "task-003",
   "tasks": [
     {
@@ -125,6 +125,8 @@
         "frontend/app/pages/master/toner.vue",
         "frontend/app/components/sparepart/SparepartCrudPage.vue",
         "frontend/app/pages/master/sparepart.vue",
+        "frontend/app/components/AppSidebar.vue",
+        "frontend/app/assets/img/logo-multi-transparent.png",
         "frontend/app/components/account/AccountCrudPage.vue",
         "frontend/app/pages/master/account.vue",
         "frontend/app/pages/master/account/customer.vue",
@@ -139,7 +141,23 @@
         "frontend/app/components/stock/StockTonerPage.vue",
         "changelogs.md",
         "frontend/app/pages/stok/sparepart.vue",
-        "frontend/app/components/stock/StockSparepartPage.vue"
+        "frontend/app/components/stock/StockSparepartPage.vue",
+        "frontend/app/components/surat-tugas/SuratTugasPage.vue",
+        "frontend/app/pages/surat-tugas.vue",
+        "frontend/app/components/tiket/TiketPage.vue",
+        "frontend/app/pages/tiket.vue",
+        "frontend/app/components/audit/AuditPage.vue",
+        "frontend/app/pages/audit.vue",
+        "frontend/app/components/audit/AuditBarangPage.vue",
+        "frontend/app/pages/audit-barang.vue",
+        "frontend/app/components/settings/RolePermissionPage.vue",
+        "frontend/app/pages/pengaturan/role-permission.vue",
+        "frontend/app/components/settings/SlaPendingPage.vue",
+        "frontend/app/pages/pengaturan/sla-pending-komplain.vue",
+        "frontend/app/components/dashboard/DashboardPage.vue",
+        "frontend/app/pages/index.vue",
+        "changelogs.md",
+        "agents.md"
       ],
       "implementation_notes": [
         "Menu frontend disamakan dengan hierarki menu di ui/; halaman tujuan dibuat sebagai route placeholder untuk implementasi modul berikutnya.",
@@ -169,6 +187,8 @@
         "Menambahkan route /stok/sparepart dengan pola stok toner, memakai /stok dan /mutasi-stok untuk daftar serta mutasi suku cadang.",
         "Menambahkan halaman Master Toner berbasis Nuxt UI dengan pencarian, pagination, state loading/error/empty, CRUD, nonaktifkan, dan hapus permanen sesuai endpoint /toner serta referensi ui/.",
         "Menambahkan halaman Master Sparepart berbasis Nuxt UI dengan form satu kolom dan endpoint /suku-cadang sesuai konfigurasi ui/.",
+        "Menggunakan aset logo-multi-transparent.png dari ui/ pada header AppSidebar frontend.",
+        "Menggunakan frontend/app/assets/img/favicon.png sebagai favicon browser melalui useHead Nuxt.",
         "Menambahkan halaman Account berbasis Nuxt UI dengan CRUD Account, Customer pertama saat pembuatan, pengelolaan Customer/Site, pagination server, dan aksi status sesuai endpoint /account.",
         "Memvalidasi field wajib dan status aktif sebelum membuat Account serta menampilkan rincian error validasi service di modal.",
         "Memisahkan menu Account menjadi Customer dan Billing; Customer memilih Billing melalui account_id. POST /account kini menerima customer_pertama opsional sesuai pilihan user.",
@@ -183,7 +203,15 @@
         "Menyederhanakan toolbar stok printer menjadi satu pencarian multi-keyword berbasis koma untuk MP No, serial, kategori, model, lokasi, dan status.",
         "Memusatkan CRUD Unit Printer di /stok/printer, menghapus Unit Printer dari navigasi Master Data, dan mengarahkan route lama /master/printer ke halaman stok.",
         "Menambahkan quick-create Model Printer dan Gudang dari form Tambah Unit Printer, dengan pemilihan otomatis setelah berhasil dibuat.",
-        "Menambahkan quick-create Kategori Printer dari modal Buat Model Printer, dengan pemilihan otomatis setelah berhasil dibuat."
+        "Menambahkan quick-create Kategori Printer dari modal Buat Model Printer, dengan pemilihan otomatis setelah kategori berhasil dibuat.",
+        "Menambahkan halaman /surat-tugas berbasis Nuxt UI dengan daftar, pencarian, pembuatan dari tiket atau mandiri, detail bertab, penugasan PIC, hasil unit, pemakaian barang, dan kontrol workflow sesuai role/status."
+        ,"Menetapkan aturan selection master data: pencarian server-side, maksimal 20 hasil awal, debounce sekitar 300 ms, serta state loading/empty/error."
+        ,"Menambahkan halaman /tiket berbasis Nuxt UI dengan daftar/filter/pagination, pembuatan berdasarkan katalog, detail, update, resolve, cancel, dan relasi Surat Tugas; selection master data memakai pencarian server-side maksimal 20 hasil awal."
+        ,"Menambahkan halaman /audit berbasis Nuxt UI mengikuti referensi ui/src/views/audit/AuditPage.vue; filter mematuhi prasyarat endpoint /audit, dengan state loading/error/empty dan pagination lokal."
+        ,"Menambahkan halaman /audit-barang berbasis Nuxt UI mengikuti referensi ui/src/views/audit/AuditBarangPage.vue; pencarian barang memakai endpoint server-side, dilengkapi pagination dan detail perubahan."
+        ,"Menambahkan halaman /pengaturan/role-permission berbasis Nuxt UI dengan pemilihan role, filter modul, checkbox aksi, ringkasan akses, dan penyimpanan ke endpoint pengaturan existing."
+        ,"Menambahkan halaman /pengaturan/sla-pending-komplain berbasis Nuxt UI dengan pembacaan nilai SLA, validasi 1-720 jam, state operasional, dan penyimpanan ke endpoint pengaturan existing."
+        ,"Mengganti halaman awal Dashboard dengan ringkasan operasional berbasis Nuxt UI dari endpoint tiket, surat tugas, pengguna, stok, dan summary printer existing; mencakup kartu metrik, tren, status, komposisi stok, beban teknisi, loading, refresh, dan partial error state."
       ],
       "blockers": [],
       "owner": "codex",

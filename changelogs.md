@@ -32,6 +32,8 @@
 - Menambahkan backlog awal pada `tasks.json`.
 - Menambahkan halaman Master Toner di `/master/toner` berbasis Nuxt UI dengan pencarian, pagination, CRUD, nonaktifkan, dan hapus permanen.
 - Menambahkan halaman Master Sparepart di `/master/sparepart` berbasis Nuxt UI dengan pencarian, pagination, CRUD, nonaktifkan, dan hapus permanen.
+- Menggunakan logo `logo-multi-transparent.png` pada header sidebar frontend.
+- Menggunakan `favicon.png` sebagai icon tab browser.
 - Menambahkan halaman Account di `/master/account` berbasis Nuxt UI dengan CRUD Account, Customer pertama saat pembuatan, pengelolaan Customer/Site, pagination server, dan aksi status sesuai endpoint `/account`.
 - Memperjelas validasi form Account baru dan menampilkan rincian kesalahan dari service saat penyimpanan gagal.
 - Memisahkan Account menjadi halaman Customer dan Billing; Customer memilih Billing, sedangkan form Billing hanya berisi identitas dan alamat penagihan.
@@ -50,3 +52,11 @@
 - Memusatkan fungsi CRUD Unit Printer di `/stok/printer`; menu Unit Printer pada Master Data dihapus dan `/master/printer` mengarah ke halaman stok.
 - Menambahkan opsi `+ Buat Model` dan `+ Buat Gudang` pada form Tambah Unit Printer, dengan pemilihan otomatis setelah data berhasil dibuat.
 - Menambahkan opsi `+ Buat Kategori` pada modal Buat Model Printer, dengan pemilihan otomatis setelah kategori berhasil dibuat.
+- Menambahkan halaman `/surat-tugas` berbasis Nuxt UI dengan daftar, pencarian, pembuatan dari tiket atau mandiri, detail bertab, penugasan PIC, hasil unit, pemakaian barang, dan kontrol workflow sesuai role/status.
+- Menambahkan halaman `/tiket` berbasis Nuxt UI dengan daftar/filter/pagination, pembuatan berdasarkan katalog, detail, update, resolve, cancel, dan relasi Surat Tugas.
+- Menambahkan pencarian server-side berbasis debounce dan batas 20 hasil awal untuk pilihan master data pada form Tiket.
+- Menambahkan halaman `/audit` berbasis Nuxt UI dengan filter tanggal, satu field Search gabungan user/nomor tiket/nomor surat tugas, state operasional, dan pagination.
+- Menambahkan halaman `/audit-barang` berbasis Nuxt UI dengan filter tanggal, jenis barang, pencarian server-side, pagination, dan detail perubahan.
+- Menambahkan halaman `/pengaturan/role-permission` berbasis Nuxt UI untuk mengatur permission role dan menyimpannya melalui endpoint pengaturan existing.
+- Menambahkan halaman `/pengaturan/sla-pending-komplain` berbasis Nuxt UI untuk mengatur batas pending komplain dalam jam.
+- Mengganti halaman awal Dashboard dengan ringkasan tiket, surat tugas, stok, printer, dan beban teknisi berbasis endpoint existing.
