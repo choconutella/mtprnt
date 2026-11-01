@@ -145,16 +145,16 @@ router.get("/:id", lihat, asyncHandler(async (req, res) => {
 }));
 
 router.post("/", izin("master_data", "create", "admin"), asyncHandler(async (req, res) => {
-  const body = skemaAccount.extend({ customer_pertama: skemaCustomer }).parse(req.body);
-  if (body.aktif === false || body.customer_pertama.aktif === false) {
+  const body = skemaAccount.extend({ customer_pertama: skemaCustomer.optional() }).parse(req.body);
+  if (body.customer_pertama && (body.aktif === false || body.customer_pertama.aktif === false)) {
     return gagal(res, "Account dan Customer pertama harus aktif.", 422);
   }
   const { customer_pertama, ...accountData } = body;
   const item = await prisma.master_account.create({
-    data: { ...accountData, master_customer: { create: customer_pertama } },
+    data: { ...accountData, ...(customer_pertama ? { master_customer: { create: customer_pertama } } : {}) },
     include: { master_customer: true }
   });
-  return sukses(res, "Account dan Customer pertama berhasil dibuat.", item, 201);
+  return sukses(res, customer_pertama ? "Account dan Customer pertama berhasil dibuat." : "Account berhasil dibuat.", item, 201);
 }));
 
 router.put("/:id", izin("master_data", "update", "admin"), asyncHandler(async (req, res) => {
@@ -199,13 +199,15 @@ router.put("/:id/customer/:customerId", izin("master_data", "update", "admin"), 
   const body = skemaCustomer.partial().parse(req.body);
   const item = await prisma.$transaction(async (tx) => {
     await kunciAccount(tx, req.params.id);
-    const current = await tx.master_customer.findFirst({ where: { id: req.params.customerId, account_id: req.params.id } });
+    const current = await tx.master_customer.findUnique({ where: { id: req.params.customerId } });
     if (!current) return null;
+    const targetAccount = await tx.master_account.findUnique({ where: { id: req.params.id } });
+    if (!targetAccount?.aktif) throw konflik("Pilih Billing aktif.");
     if (body.aktif === false && current.aktif) {
-      const active = await tx.master_customer.count({ where: { account_id: req.params.id, aktif: true } });
+      const active = await tx.master_customer.count({ where: { account_id: current.account_id, aktif: true } });
       if (active <= 1) throw konflik("Customer aktif terakhir tidak dapat dinonaktifkan.");
     }
-    return tx.master_customer.update({ where: { id: current.id }, data: body });
+    return tx.master_customer.update({ where: { id: current.id }, data: { ...body, account_id: req.params.id } });
   });
   if (!item) return gagal(res, "Customer tidak ditemukan.", 404);
   return sukses(res, "Customer berhasil diperbarui.", item);

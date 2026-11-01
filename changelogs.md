@@ -1,0 +1,46 @@
+# Changelogs
+
+## 2026-11-01
+
+### Added
+
+- Menambahkan PRD untuk frontend Multiprint berbasis Nuxt, Vue.js, dan Nuxt UI.
+- Menambahkan scaffold Nuxt UI di `frontend/` dengan `@nuxt/ui` 4.12.0.
+- Menambahkan navigasi frontend dengan hierarki menu yang sama seperti aplikasi pada `ui/`.
+- Menambahkan modul Kategori Printer, Model Printer, dan Unit Printer dengan flow API dari `ui/`.
+- Menambahkan autentikasi frontend yang kompatibel dengan `ui/`, termasuk login, sesi Bearer, profil pengguna, dan redirect 401.
+- Memperbaiki error runtime filter Unit Printer akibat `SelectItem` dengan value kosong.
+- Menambahkan tombol refresh dan `+ Buat` pada menu Unit Printer, Kategori Printer, dan Model Printer.
+- Memperbaiki posisi tombol refresh dan `+ Buat` agar tampil pada toolbar ketiga menu printer.
+- Mengurutkan submenu Printer menjadi Kategori Printer, Model Printer, lalu Unit Printer.
+- Memperlebar field Kategori pada modal Tambah Model Printer agar memenuhi lebar modal.
+- Menambahkan halaman Master Gudang di `/master/gudang` dengan CRUD berbasis Nuxt UI, pagination, pencarian, status aktif, dan relasi teknisi.
+- Menampilkan tombol `+ Buat` di samping tombol refresh pada toolbar Master Gudang.
+- Menambahkan halaman Master Akun / User di `/master/pengguna` dengan CRUD pengguna berbasis Nuxt UI.
+- Menambahkan status `isAdmin` terpusat pada autentikasi frontend agar admin melewati pembatasan akses halaman.
+- Memperlebar field Model dan Gudang Awal pada modal Tambah Unit Printer.
+- Menambahkan opsi `+ Buat Model` pada pilihan Model di modal Unit Printer yang membuka popup pembuatan model; model baru langsung terpilih setelah disimpan.
+- Menambahkan opsi `+ Buat Gudang` pada pilihan Gudang Awal di modal Unit Printer yang membuka popup pembuatan gudang; gudang baru langsung terpilih setelah disimpan.
+- Memperlebar field Keterangan pada modal Unit Printer.
+- Menambahkan opsi `+ Buat Kategori` pada pilihan Kategori di modal Model Printer; kategori baru langsung terpilih setelah dibuat.
+- Menambahkan opsi `+ Buat Kategori` juga pada popup Buat Model Printer dari halaman Unit Printer, dengan pemilihan otomatis kategori baru.
+- Memperbaiki popup Buat Kategori dari Buat Model Printer agar tampil di depan dan kembali ke form model setelah ditutup.
+- Memperlebar field Gudang dan Alasan pada modal aksi Unit Printer.
+- Menambahkan aturan proyek pada `agents.md`, termasuk batas perubahan frontend dan approval backend.
+- Menambahkan keputusan arsitektur awal pada `decisions.md`.
+- Menambahkan snapshot kontrak API dari service di `api-contracts/README.md`.
+- Menambahkan backlog awal pada `tasks.json`.
+- Menambahkan halaman Master Toner di `/master/toner` berbasis Nuxt UI dengan pencarian, pagination, CRUD, nonaktifkan, dan hapus permanen.
+- Menambahkan halaman Master Sparepart di `/master/sparepart` berbasis Nuxt UI dengan pencarian, pagination, CRUD, nonaktifkan, dan hapus permanen.
+- Menambahkan halaman Account di `/master/account` berbasis Nuxt UI dengan CRUD Account, Customer pertama saat pembuatan, pengelolaan Customer/Site, pagination server, dan aksi status sesuai endpoint `/account`.
+- Memperjelas validasi form Account baru dan menampilkan rincian kesalahan dari service saat penyimpanan gagal.
+- Memisahkan Account menjadi halaman Customer dan Billing; Customer memilih Billing, sedangkan form Billing hanya berisi identitas dan alamat penagihan.
+- Mengizinkan pembuatan Billing melalui `POST /account` tanpa `customer_pertama`.
+- Memindahkan redirect `/master/account` ke route index agar halaman Customer dan Billing dapat dirender tanpa konflik parent route.
+- Memulihkan status admin pada halaman Customer dan Billing dari profil service saat state frontend tertinggal, dengan pesan akses yang menampilkan role profil aktif.
+- Menambahkan pencarian Billing pada selection Customer serta opsi `+ Buat Billing` yang otomatis memilih Billing baru.
+- Customer kini dapat dipindahkan ke Billing lain saat diedit; Billing tujuan wajib aktif.
+- Menambahkan checkbox `Sendiri` pada form Customer di area Billing; selection Billing menjadi nonaktif saat dicentang dan Billing otomatis dibuat dari kode serta nama Customer.
+- Menampilkan tombol Nonaktifkan Customer sebagai disabled untuk Customer aktif terakhir yang tidak boleh dinonaktifkan.
+- Menambahkan halaman `/stok/printer` berbasis Nuxt UI dengan ringkasan status, filter lokasi, pagination, dan aksi transfer, keluarkan, serta kembalikan unit.
+- Menyederhanakan pencarian Stok Printer menjadi satu field multi-keyword; keyword dipisahkan koma dan dicocokkan pada MP No, serial, kategori, model, lokasi, serta status.

@@ -1,0 +1,182 @@
+{
+  "project": {
+    "name": "multiprint",
+    "summary": "Frontend Nuxt/Vue/Nuxt UI untuk operasi printer, tiket, surat tugas, stok, dan master data yang mengonsumsi service existing."
+  },
+  "updated_at": "2026-11-01T00:00:00Z",
+  "active_task_id": "task-003",
+  "tasks": [
+    {
+      "id": "task-000",
+      "title": "Siapkan dokumentasi awal proyek",
+      "status": "completed",
+      "priority": "high",
+      "type": "docs",
+      "summary": "Buat PRD, aturan agent, keputusan awal, changelog, backlog, dan snapshot kontrak API dari service existing.",
+      "dependencies": [],
+      "verification_criteria": [
+        "Semua file dokumentasi yang diminta tersedia",
+        "Kontrak API mencantumkan base URL, auth, envelope, dan endpoint utama",
+        "Tidak ada perubahan pada service/"
+      ],
+      "changed_files": [
+        "agents.md",
+        "prd.md",
+        "decisions.md",
+        "changelogs.md",
+        "tasks.json",
+        "api-contracts/README.md"
+      ],
+      "implementation_notes": [
+        "Snapshot kontrak diturunkan dari service/src/app.js, route module, auth middleware, dan schema yang tersedia."
+      ],
+      "blockers": [],
+      "owner": "codex",
+      "created_at": "2026-11-01T00:00:00Z",
+      "updated_at": "2026-11-01T00:00:00Z"
+    },
+    {
+      "id": "task-001",
+      "title": "Bootstrap frontend Nuxt",
+      "status": "completed",
+      "priority": "high",
+      "type": "frontend",
+      "summary": "Siapkan aplikasi frontend baru di folder frontend/ dengan Nuxt, Vue.js, dan Nuxt UI.",
+      "dependencies": [],
+      "verification_criteria": [
+        "Aplikasi dapat dijalankan dari frontend/",
+        "Nuxt UI terpasang dan satu halaman dasar dapat dirender",
+        "Tidak ada perubahan pada service/"
+      ],
+      "changed_files": [
+        "frontend/package.json",
+        "frontend/pnpm-lock.yaml",
+        "frontend/nuxt.config.ts",
+        "frontend/app/"
+      ],
+      "implementation_notes": [
+        "Scaffold Nuxt UI resmi dibuat dengan @nuxt/ui 4.12.0, Nuxt 4.6.3, Tailwind CSS 4.3.3, dan pnpm lockfile.",
+        "Lint, typecheck, dan production build berhasil; build memberi warning jaringan font eksternal dan symlink Windows tetapi exit code 0.",
+        "Backend existing tetap read-only tanpa approval."
+      ],
+      "blockers": [],
+      "owner": "codex",
+      "created_at": "2026-11-01T00:00:00Z",
+      "updated_at": "2026-11-01T00:00:00Z"
+    },
+    {
+      "id": "task-002",
+      "title": "Bangun client autentikasi dan API dasar",
+      "status": "pending",
+      "priority": "high",
+      "type": "frontend",
+      "summary": "Implementasikan login, token handling, profil pengguna, response envelope, dan error handling berdasarkan kontrak API.",
+      "dependencies": ["task-001"],
+      "verification_criteria": [
+        "Login valid menghasilkan sesi frontend",
+        "401 dan 403 ditangani tanpa membocorkan token",
+        "Endpoint dipanggil sesuai api-contracts/"
+      ],
+      "changed_files": [],
+      "implementation_notes": [],
+      "blockers": [],
+      "owner": "codex",
+      "created_at": "2026-11-01T00:00:00Z",
+      "updated_at": "2026-11-01T00:00:00Z"
+    },
+    {
+      "id": "task-003",
+      "title": "Implementasikan modul operasional inti",
+      "status": "in_progress",
+      "priority": "medium",
+      "type": "frontend",
+      "summary": "Bangun halaman dashboard, master data, pengaduan/tiket, surat tugas, printer, stok, dan audit sesuai prioritas produk.",
+      "dependencies": ["task-002"],
+      "verification_criteria": [
+        "Menu dan aksi mengikuti role pengguna",
+        "Daftar memiliki pagination, filter, loading, empty, dan error state",
+        "Workflow utama dapat diverifikasi terhadap service tanpa perubahan backend"
+      ],
+      "changed_files": [
+        "frontend/app/app.vue",
+        "frontend/app/layouts/default.vue",
+        "frontend/app/components/AppSidebar.vue",
+        "frontend/app/components/SidebarMenuItem.vue",
+        "frontend/app/data/navigation.ts",
+        "frontend/app/pages/index.vue",
+        "frontend/app/pages/[...slug].vue",
+        "frontend/app/components/printer/PrinterCrudPage.vue",
+        "frontend/app/composables/useServiceApi.ts",
+        "frontend/app/pages/master/printer-kategori.vue",
+        "frontend/app/pages/master/printer-model.vue",
+        "frontend/app/pages/master/printer.vue",
+        "frontend/app/components/warehouse/WarehouseCrudPage.vue",
+        "frontend/app/pages/master/gudang.vue",
+        "frontend/app/components/user/UserCrudPage.vue",
+        "frontend/app/pages/master/pengguna.vue",
+        "frontend/nuxt.config.ts",
+        "frontend/app/composables/useAuth.ts",
+        "frontend/app/composables/useServiceApi.ts",
+        "frontend/app/middleware/auth.global.client.ts",
+        "frontend/app/pages/login.vue",
+        "frontend/app/layouts/default.vue",
+        "frontend/app/components/printer/PrinterCrudPage.vue",
+        "frontend/app/components/toner/TonerCrudPage.vue",
+        "frontend/app/pages/master/toner.vue",
+        "frontend/app/components/sparepart/SparepartCrudPage.vue",
+        "frontend/app/pages/master/sparepart.vue",
+        "frontend/app/components/account/AccountCrudPage.vue",
+        "frontend/app/pages/master/account.vue",
+        "frontend/app/pages/master/account/customer.vue",
+        "frontend/app/pages/master/account/billing.vue",
+        "frontend/app/pages/master/account/index.vue",
+        "frontend/app/components/account/AccountCustomerPage.vue",
+        "frontend/app/components/account/AccountBillingPage.vue",
+        "frontend/app/data/navigation.ts",
+        "service/src/modules/account.routes.js",
+        "docs/contracts/README.md"
+      ],
+      "implementation_notes": [
+        "Menu frontend disamakan dengan hierarki menu di ui/; halaman tujuan dibuat sebagai route placeholder untuk implementasi modul berikutnya.",
+        "Modul printer mengikuti flow API di ui/: CRUD kategori/model, relasi kategori-model, unit printer, filter, summary, dan transfer/withdraw/return.",
+        "Autentikasi frontend mengikuti ui/: POST /auth/masuk, token_multiprint, Bearer header, GET /auth/saya, logout, dan redirect saat 401.",
+        "Memperbaiki USelect filter Unit Printer agar tidak memakai SelectItem dengan value string kosong; reset filter kini memakai placeholder.",
+        "Menambahkan tombol refresh dan + Buat di header ketiga menu printer.",
+        "Memindahkan kedua tombol ke toolbar karena UPageHeader versi terpasang tidak merender slot right.",
+        "Mengurutkan submenu Printer menjadi Kategori Printer, Model Printer, lalu Unit Printer.",
+        "Memperlebar USelect Kategori pada modal Tambah Model Printer menggunakan class w-full.",
+        "Menambahkan halaman Master Gudang berbasis Nuxt UI dengan API /gudang, pilihan teknisi dari /pengguna, pagination, pencarian, edit, nonaktifkan, dan hapus permanen.",
+        "Menampilkan tombol + Buat tepat di samping tombol refresh pada toolbar Master Gudang.",
+        "Menambahkan halaman Master Akun / User dengan response direct-list /pengguna, pencarian lokal, pagination, tambah, edit, dan nonaktifkan.",
+        "Menambahkan computed isAdmin pada useAuth dan menggunakannya sebagai bypass hak akses frontend untuk admin.",
+        "Memperlebar USelect Model dan Gudang Awal pada modal Tambah Unit Printer menggunakan class w-full.",
+        "Menambahkan opsi + Buat Model pada pilihan Model di modal Unit Printer, membuka popup pembuatan, lalu otomatis memilih model hasil POST.",
+        "Menambahkan opsi + Buat Gudang pada pilihan Gudang Awal di modal Unit Printer, membuka popup pembuatan, lalu otomatis memilih gudang hasil POST.",
+        "Memperlebar UTextarea Keterangan pada modal Unit Printer menggunakan class w-full.",
+        "Menambahkan opsi + Buat Kategori di modal Model Printer dengan popup dan pemilihan otomatis kategori hasil POST.",
+        "Membuka popup Buat Kategori dari pilihan Kategori di popup Buat Model Printer pada halaman Unit Printer dan memilih kategori hasil POST di form model tersebut.",
+        "Memperbaiki alur popup bertingkat: Buat Model ditutup sementara saat Buat Kategori terbuka dan dipulihkan setelah kategori ditutup.",
+        "Memperlebar USelect Gudang dan UTextarea Alasan pada modal aksi Unit Printer menggunakan class w-full.",
+        "Lint dan typecheck lulus. Production build terhenti pada EPERM cache prerender Nuxt di OneDrive.",
+        "Menambahkan halaman Master Toner berbasis Nuxt UI dengan pencarian, pagination, state loading/error/empty, CRUD, nonaktifkan, dan hapus permanen sesuai endpoint /toner serta referensi ui/.",
+        "Menambahkan halaman Master Sparepart berbasis Nuxt UI dengan form satu kolom dan endpoint /suku-cadang sesuai konfigurasi ui/.",
+        "Menambahkan halaman Account berbasis Nuxt UI dengan CRUD Account, Customer pertama saat pembuatan, pengelolaan Customer/Site, pagination server, dan aksi status sesuai endpoint /account.",
+        "Memvalidasi field wajib dan status aktif sebelum membuat Account serta menampilkan rincian error validasi service di modal.",
+        "Memisahkan menu Account menjadi Customer dan Billing; Customer memilih Billing melalui account_id. POST /account kini menerima customer_pertama opsional sesuai pilihan user.",
+        "Memindahkan redirect /master/account ke halaman index di folder account agar route Customer/Billing tidak menjadi child dari account.vue tanpa NuxtPage.",
+        "Memuat ulang profil saat halaman Customer/Billing mendeteksi status admin belum tersedia; menampilkan role profil jika aksi masih terkunci.",
+        "Mengganti pilihan Billing pada form Customer menjadi USelectMenu searchable dengan opsi + Buat Billing dan pemilihan otomatis setelah Billing berhasil dibuat.",
+        "Mengaktifkan pemindahan Customer ke Billing lain saat edit; service memvalidasi Billing tujuan aktif dan menyimpan perpindahan dalam transaksi.",
+        "Menambahkan checkbox Sendiri di bawah label Billing dan di atas selection Pilih Billing pada form Customer; selection menjadi disable saat checkbox aktif.",
+        "Saat Sendiri aktif, form Customer membuat Billing master dengan kode dan nama yang sama dengan Customer lalu menyimpan Customer di Billing tersebut.",
+        "Menampilkan tombol Nonaktifkan Customer dalam keadaan disabled untuk Customer aktif terakhir agar aturan service terlihat di tabel.",
+        "Membangun halaman /stok/printer berbasis Nuxt UI dengan ringkasan status, filter lokasi, pagination, dan aksi transfer/keluarkan/kembalikan.",
+        "Menyederhanakan toolbar stok printer menjadi satu pencarian multi-keyword berbasis koma untuk MP No, serial, kategori, model, lokasi, dan status."
+      ],
+      "blockers": [],
+      "owner": "codex",
+      "created_at": "2026-11-01T00:00:00Z",
+      "updated_at": "2026-11-01T00:00:00Z"
+    }
+  ]
+}
