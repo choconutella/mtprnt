@@ -43,4 +43,10 @@
 - Menambahkan checkbox `Sendiri` pada form Customer di area Billing; selection Billing menjadi nonaktif saat dicentang dan Billing otomatis dibuat dari kode serta nama Customer.
 - Menampilkan tombol Nonaktifkan Customer sebagai disabled untuk Customer aktif terakhir yang tidak boleh dinonaktifkan.
 - Menambahkan halaman `/stok/printer` berbasis Nuxt UI dengan ringkasan status, filter lokasi, pagination, dan aksi transfer, keluarkan, serta kembalikan unit.
+- Menambahkan halaman `/stok/toner` berbasis Nuxt UI dengan pencarian, pagination, empty/loading/error state, pembatasan role, serta aksi tambah dan kurangi stok melalui endpoint mutasi existing.
+- Memastikan role admin dapat mengelola stok toner melalui normalisasi role di frontend.
+- Menambahkan halaman `/stok/sparepart` berbasis Nuxt UI dengan pencarian, pagination, state operasional, serta aksi tambah dan kurangi stok melalui endpoint mutasi existing.
 - Menyederhanakan pencarian Stok Printer menjadi satu field multi-keyword; keyword dipisahkan koma dan dicocokkan pada MP No, serial, kategori, model, lokasi, serta status.
+- Memusatkan fungsi CRUD Unit Printer di `/stok/printer`; menu Unit Printer pada Master Data dihapus dan `/master/printer` mengarah ke halaman stok.
+- Menambahkan opsi `+ Buat Model` dan `+ Buat Gudang` pada form Tambah Unit Printer, dengan pemilihan otomatis setelah data berhasil dibuat.
+- Menambahkan opsi `+ Buat Kategori` pada modal Buat Model Printer, dengan pemilihan otomatis setelah kategori berhasil dibuat.

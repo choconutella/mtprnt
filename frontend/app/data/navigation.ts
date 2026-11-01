@@ -30,8 +30,7 @@ export const navigationGroups: NavigationGroup[] = [
       ] },
       { label: 'Printer', icon: 'i-lucide-printer', children: [
         { label: 'Kategori Printer', icon: 'i-lucide-printer', to: '/master/printer-kategori' },
-        { label: 'Model Printer', icon: 'i-lucide-printer', to: '/master/printer-model' },
-        { label: 'Unit Printer', icon: 'i-lucide-printer', to: '/master/printer' }
+        { label: 'Model Printer', icon: 'i-lucide-printer', to: '/master/printer-model' }
       ] },
       { label: 'Toner', icon: 'i-lucide-boxes', to: '/master/toner' },
       { label: 'Sparepart', icon: 'i-lucide-wrench', to: '/master/sparepart' },

@@ -134,7 +134,12 @@
         "frontend/app/components/account/AccountBillingPage.vue",
         "frontend/app/data/navigation.ts",
         "service/src/modules/account.routes.js",
-        "docs/contracts/README.md"
+        "docs/contracts/README.md",
+        "frontend/app/pages/stok/toner.vue",
+        "frontend/app/components/stock/StockTonerPage.vue",
+        "changelogs.md",
+        "frontend/app/pages/stok/sparepart.vue",
+        "frontend/app/components/stock/StockSparepartPage.vue"
       ],
       "implementation_notes": [
         "Menu frontend disamakan dengan hierarki menu di ui/; halaman tujuan dibuat sebagai route placeholder untuk implementasi modul berikutnya.",
@@ -158,6 +163,10 @@
         "Memperbaiki alur popup bertingkat: Buat Model ditutup sementara saat Buat Kategori terbuka dan dipulihkan setelah kategori ditutup.",
         "Memperlebar USelect Gudang dan UTextarea Alasan pada modal aksi Unit Printer menggunakan class w-full.",
         "Lint dan typecheck lulus. Production build terhenti pada EPERM cache prerender Nuxt di OneDrive.",
+        "Menambahkan route /stok/toner berbasis Nuxt UI dengan pencarian, pagination, state loading/error/empty, kontrol role admin/warehouse, serta mutasi masuk dan keluar melalui /mutasi-stok.",
+        "Percobaan lint frontend tidak menghasilkan output dan perlu dihentikan setelah proses menggantung di environment OneDrive; belum ada error lint yang terdeteksi dari output.",
+        "Menormalisasi role pada halaman Stok Toner agar admin selalu memiliki akses tambah dan kurangi stok, termasuk saat format role memakai huruf besar atau tanda hubung.",
+        "Menambahkan route /stok/sparepart dengan pola stok toner, memakai /stok dan /mutasi-stok untuk daftar serta mutasi suku cadang.",
         "Menambahkan halaman Master Toner berbasis Nuxt UI dengan pencarian, pagination, state loading/error/empty, CRUD, nonaktifkan, dan hapus permanen sesuai endpoint /toner serta referensi ui/.",
         "Menambahkan halaman Master Sparepart berbasis Nuxt UI dengan form satu kolom dan endpoint /suku-cadang sesuai konfigurasi ui/.",
         "Menambahkan halaman Account berbasis Nuxt UI dengan CRUD Account, Customer pertama saat pembuatan, pengelolaan Customer/Site, pagination server, dan aksi status sesuai endpoint /account.",
@@ -171,7 +180,10 @@
         "Saat Sendiri aktif, form Customer membuat Billing master dengan kode dan nama yang sama dengan Customer lalu menyimpan Customer di Billing tersebut.",
         "Menampilkan tombol Nonaktifkan Customer dalam keadaan disabled untuk Customer aktif terakhir agar aturan service terlihat di tabel.",
         "Membangun halaman /stok/printer berbasis Nuxt UI dengan ringkasan status, filter lokasi, pagination, dan aksi transfer/keluarkan/kembalikan.",
-        "Menyederhanakan toolbar stok printer menjadi satu pencarian multi-keyword berbasis koma untuk MP No, serial, kategori, model, lokasi, dan status."
+        "Menyederhanakan toolbar stok printer menjadi satu pencarian multi-keyword berbasis koma untuk MP No, serial, kategori, model, lokasi, dan status.",
+        "Memusatkan CRUD Unit Printer di /stok/printer, menghapus Unit Printer dari navigasi Master Data, dan mengarahkan route lama /master/printer ke halaman stok.",
+        "Menambahkan quick-create Model Printer dan Gudang dari form Tambah Unit Printer, dengan pemilihan otomatis setelah berhasil dibuat.",
+        "Menambahkan quick-create Kategori Printer dari modal Buat Model Printer, dengan pemilihan otomatis setelah berhasil dibuat."
       ],
       "blockers": [],
       "owner": "codex",

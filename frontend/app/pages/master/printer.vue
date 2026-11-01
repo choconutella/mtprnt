@@ -1,7 +1,3 @@
 <script setup lang="ts">
-definePageMeta({ title: 'Unit Printer' })
+await navigateTo('/stok/printer', { redirectCode: 301 })
 </script>
-
-<template>
-  <PrinterCrudPage mode="unit" />
-</template>
