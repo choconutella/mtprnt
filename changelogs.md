@@ -1,5 +1,13 @@
 # Changelogs
 
+## 2026-11-02
+
+### Changed
+
+- Menghapus `frontend/docker-compose.yml` setelah service `frontend` dipusatkan di compose root.
+- Membuat ulang container `multiprint-frontend` dan `service` dari root Compose.
+- Mengekspor image hasil build ke `multiprint-frontend.tar` dan `multiprint-service.tar`.
+
 ## 2026-11-01
 
 ### Added
@@ -60,3 +68,5 @@
 - Menambahkan halaman `/pengaturan/role-permission` berbasis Nuxt UI untuk mengatur permission role dan menyimpannya melalui endpoint pengaturan existing.
 - Menambahkan halaman `/pengaturan/sla-pending-komplain` berbasis Nuxt UI untuk mengatur batas pending komplain dalam jam.
 - Mengganti halaman awal Dashboard dengan ringkasan tiket, surat tugas, stok, printer, dan beban teknisi berbasis endpoint existing.
+- Menambahkan deployment Docker lokal khusus `frontend/` dengan build Nuxt production dan konfigurasi URL API melalui environment variable.
+- Menggabungkan service Nuxt production `frontend` ke `docker-compose.yml` root dengan build context `./frontend` dan port default 3000.

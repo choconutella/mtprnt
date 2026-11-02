@@ -5,3 +5,5 @@ coverage/
 backups/
 *.log
 .DS_Store
+
+*.tar

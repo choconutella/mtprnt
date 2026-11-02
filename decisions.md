@@ -39,3 +39,13 @@
 - Reason: Memungkinkan alur membuat Billing lalu menambahkan Customer tanpa memaksa field Customer pada form Billing.
 - Alternatives Considered: Tetap mewajibkan Customer pertama pada form Billing.
 - Consequences: Billing dapat memiliki nol Customer; alur operasional yang membutuhkan Customer harus memilih Customer yang tersedia.
+
+## DEC-005: Deployment lokal frontend menggunakan Nuxt production server di compose root
+
+- Date: 2026-11-01
+- Status: Accepted
+- Context: Frontend baru perlu dijalankan dalam Docker bersama service, database, dan frontend lama yang sudah ada.
+- Decision: Gunakan Dockerfile multi-stage di `frontend/` dan definisikan service `frontend` di `docker-compose.yml` root; URL API diatur melalui `NUXT_PUBLIC_API_BASE_URL`.
+- Reason: Satu entry point Compose menyederhanakan operasi lokal, sementara frontend lama tetap tersedia melalui service `ui` dan konfigurasi API tetap dapat diganti tanpa rebuild image.
+- Alternatives Considered: Mempertahankan compose terpisah di `frontend/` atau mengganti service `ui` pada compose root.
+- Consequences: Frontend tersedia di port 3000 secara default; service API harus tersedia di host pada port 5000 atau URL API perlu dioverride saat menjalankan compose.

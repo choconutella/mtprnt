@@ -3,7 +3,7 @@
     "name": "multiprint",
     "summary": "Frontend Nuxt/Vue/Nuxt UI untuk operasi printer, tiket, surat tugas, stok, dan master data yang mengonsumsi service existing."
   },
-  "updated_at": "2026-11-01T15:30:00Z",
+  "updated_at": "2026-11-01T15:45:00Z",
   "active_task_id": "task-003",
   "tasks": [
     {
@@ -157,7 +157,15 @@
         "frontend/app/components/dashboard/DashboardPage.vue",
         "frontend/app/pages/index.vue",
         "changelogs.md",
-        "agents.md"
+        "agents.md",
+        "frontend/nuxt.config.ts",
+        "frontend/Dockerfile",
+        "frontend/.dockerignore",
+        "docker-compose.yml",
+        "multiprint-frontend.tar",
+        "multiprint-service.tar",
+        "tasks.json",
+        "decisions.md"
       ],
       "implementation_notes": [
         "Menu frontend disamakan dengan hierarki menu di ui/; halaman tujuan dibuat sebagai route placeholder untuk implementasi modul berikutnya.",
@@ -212,6 +220,9 @@
         ,"Menambahkan halaman /pengaturan/role-permission berbasis Nuxt UI dengan pemilihan role, filter modul, checkbox aksi, ringkasan akses, dan penyimpanan ke endpoint pengaturan existing."
         ,"Menambahkan halaman /pengaturan/sla-pending-komplain berbasis Nuxt UI dengan pembacaan nilai SLA, validasi 1-720 jam, state operasional, dan penyimpanan ke endpoint pengaturan existing."
         ,"Mengganti halaman awal Dashboard dengan ringkasan operasional berbasis Nuxt UI dari endpoint tiket, surat tugas, pengguna, stok, dan summary printer existing; mencakup kartu metrik, tren, status, komposisi stok, beban teknisi, loading, refresh, dan partial error state."
+        ,"Menambahkan Dockerfile production multi-stage dan compose lokal frontend/; URL API dapat diatur melalui NUXT_PUBLIC_API_BASE_URL tanpa mengubah service/."
+        ,"Menggabungkan service frontend ke compose root dengan context ./frontend dan port default 3000; service ui existing tetap dipertahankan."
+        ,"Menghapus compose frontend yang sudah tidak diperlukan, membuat ulang container frontend dan service dari compose root, serta mengekspor image ke multiprint-frontend.tar dan multiprint-service.tar."
       ],
       "blockers": [],
       "owner": "codex",

@@ -66,6 +66,17 @@ services:
     depends_on:
       - service
 
+  frontend:
+    build:
+      context: ./frontend
+    container_name: multiprint-frontend
+    restart: unless-stopped
+    environment:
+      NUXT_PUBLIC_API_BASE_URL: ${NUXT_PUBLIC_API_BASE_URL:-http://host.docker.internal:5000/api}
+      TZ: Asia/Bangkok
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+
 volumes:
   postgres_data:
   pgadmin_data:
