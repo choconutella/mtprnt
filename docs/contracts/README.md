@@ -70,8 +70,10 @@ Status yang perlu ditangani UI: `400`, `401`, `403`, `404`, `405`, `409`, `422`,
 | GET/POST/PUT/DELETE | `/pengaduan` dan `/pengaduan/:id` | Role | CRUD pengaduan |
 | POST | `/pengaduan/:id/resolve` | Role | Selesaikan pengaduan |
 | GET | `/tiket/catalog` | Permission | Katalog jenis tiket |
-| GET/POST/PUT | `/tiket` dan `/tiket/:id` | Permission | CRUD tiket |
+| GET/POST/PUT | `/tiket` dan `/tiket/:id` | Permission | CRUD tiket; `jenis` opsional pada Tiket baru dan ditentukan pada Surat Tugas |
 | POST | `/tiket/:id/resolve` | Permission | Selesaikan tiket |
+
+`PUT /tiket/:id` menerima `sales_id`, `tanggal_transaksi` (ISO datetime), dan `deskripsi` untuk edit Tiket. Nomor, kategori, customer, dan unit printer tetap dibaca saja.
 | POST | `/tiket/:id/cancel` | Permission | Batalkan tiket |
 | GET/POST/PUT | `/surat-tugas` dan `/surat-tugas/:id` | Role | CRUD surat tugas |
 | POST | `/surat-tugas/:id/teknisi` | Role | Assign teknisi |

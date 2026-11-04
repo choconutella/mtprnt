@@ -139,7 +139,7 @@ router.post("/", izin("surat_tugas", "create", "kepala-teknisi", "warehouse"), a
     const ticket = body.tiket_id ? await tx.tiket.findUnique({ where: { id: body.tiket_id }, include: { tiket_printer: true, tiket_barang: true } }) : null;
     if (body.tiket_id && !ticket) reject("Tiket tidak ditemukan.", 404);
     if (ticket?.pengaduan_lama_id) reject("Tiket arsip tetap memakai alur Surat Tugas lama.", 409);
-    if (ticket && (ticket.status === "solved" || ticket.status === "cancelled" || !jenisStDiizinkan(ticket.kategori, ticket.jenis, body.jenis_tugas, ticket.mode))) reject("Jenis ST tidak berlaku untuk tiket ini.", 422);
+    if (ticket && (ticket.status === "solved" || ticket.status === "cancelled" || identity?.kategori !== ticket.kategori || (ticket.jenis && !jenisStDiizinkan(ticket.kategori, ticket.jenis, body.jenis_tugas, ticket.mode)))) reject("Jenis ST tidak berlaku untuk tiket ini.", 422);
     if (ticket && (body.account_id && body.account_id !== ticket.account_id || body.customer_id && body.customer_id !== ticket.customer_id)) reject("Account/Customer ST harus sesuai tiket.", 422);
     body.account_id = ticket?.account_id || body.account_id || null;
     body.customer_id = ticket?.customer_id || body.customer_id || null;

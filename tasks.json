@@ -3,7 +3,7 @@
     "name": "multiprint",
     "summary": "Frontend Nuxt/Vue/Nuxt UI untuk operasi printer, tiket, surat tugas, stok, dan master data yang mengonsumsi service existing."
   },
-  "updated_at": "2026-11-01T15:45:00Z",
+  "updated_at": "2026-11-04T00:00:00Z",
   "active_task_id": "task-003",
   "tasks": [
     {
@@ -87,7 +87,7 @@
     {
       "id": "task-003",
       "title": "Implementasikan modul operasional inti",
-      "status": "in_progress",
+      "status": "completed",
       "priority": "medium",
       "type": "frontend",
       "summary": "Bangun halaman dashboard, master data, pengaduan/tiket, surat tugas, printer, stok, dan audit sesuai prioritas produk.",
@@ -223,6 +223,23 @@
         ,"Menambahkan Dockerfile production multi-stage dan compose lokal frontend/; URL API dapat diatur melalui NUXT_PUBLIC_API_BASE_URL tanpa mengubah service/."
         ,"Menggabungkan service frontend ke compose root dengan context ./frontend dan port default 3000; service ui existing tetap dipertahankan."
         ,"Menghapus compose frontend yang sudah tidak diperlukan, membuat ulang container frontend dan service dari compose root, serta mengekspor image ke multiprint-frontend.tar dan multiprint-service.tar."
+        ,"Mengubah workflow Tiket/ST: Tiket baru tidak memilih jenis pekerjaan; ST memfilter jenis tugas berdasarkan kategori Tiket; detail Tiket memberi rekomendasi penutupan setelah ST selesai dan admin menjadi akses penutupan sementara."
+        ,"Modal Edit Tiket memakai tab Detil dan Surat Tugas; service menyimpan perubahan Sales, tanggal transaksi, dan deskripsi. Unit printer ditampilkan hanya baca."
+        ,"Buat Surat Tugas dari modal Tiket membuka popup Surat Tugas di halaman Tiket dengan field Tiket baca saja. Setelah tersimpan, modal Edit Tiket dibuka pada tab Surat Tugas."
+        ,"Mengganti aksi View pada daftar Surat Tugas menjadi Edit; form edit memakai form pembuatan yang sama, memuat data ST dari detail, dan menyimpan perubahan melalui PUT /surat-tugas/:id."
+        ,"Menambahkan tab sidebar Detil dan Items pada popup form Surat Tugas; Items mendukung printer serta penambahan toner/sparepart dengan gudang, jumlah, dan keterangan."
+        ,"Menampilkan jumlah item di tab Items dan mendukung beberapa toner/sparepart per ST yang sudah berjalan; item yang berhasil tersimpan ditandai agar tidak terkirim ulang. Form ST baru menjelaskan batas status pemakaian service."
+        ,"Menambahkan aksi workflow pada tab Detil popup Edit Surat Tugas; status dan aksi yang tersedia diperbarui di popup setelah request berhasil."
+        ,"Menempatkan tombol workflow dan Simpan Surat Tugas pada satu baris footer modal dengan scroll horizontal pada layar sempit."
+        ,"Menyelaraskan tombol footer Surat Tugas ke kanan dan menyamakan lebarnya."
+        ,"Mengubah tombol Mulai menjadi tombol dengan panah dropdown yang menampilkan aksi Batalkan saat keduanya tersedia."
+        ,"Mengubah tampilan tombol Mulai beserta panah dropdown menjadi outline biru tanpa isian."
+        ,"Menampilkan satu tombol workflow sesuai urutan status ST; Batalkan dipindahkan ke panah dropdown tombol langkah aktif, dan Selesai baru muncul setelah prasyarat serah/keluar terpenuhi."
+        ,"Mengganti tombol cadangan Aksi ketika hanya pembatalan tersedia dengan nama tahap terakhir yang nonaktif dan panah dropdown Batalkan."
+        ,"Mengubah daftar item Toner/Sparepart pada tab Items modal Edit Surat Tugas dari kartu menjadi tabel yang konsisten dengan tab Surat Tugas pada modal Tiket."
+        ,"Menyatukan printer, toner, dan sparepart pada tabel Items serta memindahkan pemilihannya ke popup Tambah Item; mengganti referensi Tiket yang tidak valid di form ST."
+        ,"Menampilkan pilihan Printer secara konsisten dalam selection Jenis Item pada popup Tambah Item."
+        ,"Menetapkan dimensi popup Tambah Item agar tidak berubah ketika pilihan Jenis Item berganti."
       ],
       "blockers": [],
       "owner": "codex",

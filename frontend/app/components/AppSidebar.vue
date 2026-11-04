@@ -1,17 +1,17 @@
 <script setup lang="ts">
-import { navigationGroups } from '~/data/navigation'
-import logoUrl from '~/assets/img/logo-multi-transparent.png'
+import { navigationGroups } from "~/data/navigation";
+import logoUrl from "~/assets/img/logo-multi-transparent.png";
 
-const open = defineModel<boolean>({ default: false })
-const emit = defineEmits<{ logout: [] }>()
+const open = defineModel<boolean>({ default: false });
+const emit = defineEmits<{ logout: [] }>();
 
 function closeOnNavigate() {
-  if (import.meta.client && window.innerWidth < 1024) open.value = false
+  if (import.meta.client && window.innerWidth < 1024) open.value = false;
 }
 
 function handleLogout() {
-  emit('logout')
-  closeOnNavigate()
+  emit("logout");
+  closeOnNavigate();
 }
 </script>
 
@@ -26,7 +26,7 @@ function handleLogout() {
         :src="logoUrl"
         alt="MultiPrint"
         class="h-auto w-3/4 object-contain object-left"
-      >
+      />
       <UButton
         class="ms-auto lg:hidden"
         color="neutral"
@@ -38,11 +38,10 @@ function handleLogout() {
     </div>
     <UScrollArea class="flex-1 px-3 py-4">
       <nav class="space-y-5">
-        <section
-          v-for="group in navigationGroups"
-          :key="group.label"
-        >
-          <p class="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-dimmed">
+        <section v-for="group in navigationGroups" :key="group.label">
+          <p
+            class="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-dimmed"
+          >
             {{ group.label }}
           </p>
           <div class="space-y-1">

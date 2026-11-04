@@ -25,7 +25,7 @@ const printerSchema = z.object({
 });
 const bodySchema = z.object({
   kategori: z.enum(Object.keys(JENIS_TIKET)),
-  jenis: z.string().min(1),
+  jenis: z.string().trim().min(1).optional().nullable(),
   account_id: z.string().uuid().optional().nullable(),
   customer_id: z.string().uuid().optional().nullable(),
   kontrak_id: z.string().uuid().optional().nullable(),
@@ -80,6 +80,7 @@ function bolehLihat(req, tiket) {
 
 async function validasiPrinter(tx, body) {
   const { kategori, jenis, printer, customer_id: customerId } = body;
+  if (!jenis) return;
   if (jenis !== "toner_purchase" && !printer.length) reject("Pilih minimal satu printer.");
   if (["on_site_service", "repair"].includes(jenis) && printer.length !== 1) reject("Jenis ini membutuhkan tepat satu printer.");
   if (jenis === "back_up" && (printer.length !== 2 || !printer.some((p) => p.peran === "utama") || !printer.some((p) => p.peran === "pengganti"))) reject("BACK-UP membutuhkan unit utama dan pengganti.");
@@ -113,7 +114,7 @@ async function validasiPrinter(tx, body) {
 }
 
 async function validasiBody(tx, body) {
-  if (!JENIS_TIKET[body.kategori]?.[body.jenis]) reject("Jenis tiket tidak sesuai kategori.");
+  if (body.jenis && !JENIS_TIKET[body.kategori]?.[body.jenis]) reject("Jenis tiket tidak sesuai kategori.");
   if (["delivery", "komplain", "maintenance"].includes(body.kategori) || body.jenis === "return") {
     if (!body.account_id || !body.customer_id) reject("Account dan Customer wajib dipilih.");
   }
@@ -123,13 +124,17 @@ async function validasiBody(tx, body) {
     const sales = await tx.master_pengguna.findUnique({ where: { id: body.sales_id } });
     if (!sales?.aktif || sales.peran !== "sales") reject("Sales harus user ber-role Sales aktif.");
   }
-  if (["trial", "event"].includes(body.jenis) && !body.tanggal_akhir) reject("Tanggal akhir wajib diisi.");
-  if (body.jenis === "toner_purchase" && !body.toner.length) reject("Pilih toner dan jumlah yang dipesan.");
-  if (body.jenis === "return" && !body.alasan) reject("Alasan Return wajib diisi.");
-  if (body.jenis === "internal_use" && !body.lokasi_internal) reject("Divisi/lokasi internal wajib diisi.");
-  if (body.jenis !== "toner_purchase" && body.toner.length) reject("Item toner pesanan hanya untuk TONER PURCHASE.");
-  if (body.jenis === "back_up" && !["sementara", "permanen"].includes(body.mode)) reject("Pilih mode BACK-UP sementara atau permanen.");
-  if (body.jenis === "kontrak" && !["baru", "tukar"].includes(body.mode)) reject("Pilih mode KONTRAK baru atau tukar.");
+  if (body.jenis) {
+    if (["trial", "event"].includes(body.jenis) && !body.tanggal_akhir) reject("Tanggal akhir wajib diisi.");
+    if (body.jenis === "toner_purchase" && !body.toner.length) reject("Pilih toner dan jumlah yang dipesan.");
+    if (body.jenis === "return" && !body.alasan) reject("Alasan Return wajib diisi.");
+    if (body.jenis === "internal_use" && !body.lokasi_internal) reject("Divisi/lokasi internal wajib diisi.");
+    if (body.jenis !== "toner_purchase" && body.toner.length) reject("Item toner pesanan hanya untuk TONER PURCHASE.");
+    if (body.jenis === "back_up" && !["sementara", "permanen"].includes(body.mode)) reject("Pilih mode BACK-UP sementara atau permanen.");
+    if (body.jenis === "kontrak" && !["baru", "tukar"].includes(body.mode)) reject("Pilih mode KONTRAK baru atau tukar.");
+  } else if (body.toner.length) {
+    reject("Toner dipilih pada Surat Tugas setelah jenis pekerjaan ditentukan.");
+  }
   await validasiPrinter(tx, body);
 }
 
@@ -193,6 +198,7 @@ router.post("/", izin("tiket", "create", "sales-admin", "kepala-teknisi", "wareh
       tanggal_transaksi: body.tanggal_transaksi ? new Date(body.tanggal_transaksi) : new Date(),
       tanggal_akhir: body.tanggal_akhir ? new Date(body.tanggal_akhir) : null,
       nomor_tiket: buatNomor("TKT"),
+      jenis: body.jenis || "",
       dibuat_oleh: req.pengguna.id,
       tiket_printer: { create: printer.map((line) => ({ ...line, serial_number: line.serial_number || null })) },
       tiket_barang: { create: toner }
@@ -217,14 +223,19 @@ router.post("/", izin("tiket", "create", "sales-admin", "kepala-teknisi", "wareh
 }));
 
 router.put("/:id", izin("tiket", "update", "sales-admin", "kepala-teknisi", "warehouse"), asyncHandler(async (req, res) => {
-  const body = z.object({ deskripsi: z.string().optional().nullable(), tanggal_akhir: z.string().datetime({ offset: true }).optional().nullable(), alasan: z.string().optional().nullable(), hasil: z.string().optional().nullable(), lokasi_internal: z.string().optional().nullable() }).parse(req.body);
+  if (req.body?.printer_ids !== undefined) reject("Unit Printer pada Tiket tidak dapat diubah.");
+  const body = z.object({ deskripsi: z.string().optional().nullable(), tanggal_akhir: z.string().datetime({ offset: true }).optional().nullable(), alasan: z.string().optional().nullable(), hasil: z.string().optional().nullable(), lokasi_internal: z.string().optional().nullable(), sales_id: z.string().uuid().optional(), tanggal_transaksi: z.string().datetime({ offset: true }).optional() }).parse(req.body);
   const item = await prisma.$transaction(async (tx) => {
     const before = await tx.tiket.findUnique({ where: { id: req.params.id } });
     if (!before) return null;
     if (before.pengaduan_lama_id) reject("Tiket arsip disunting melalui alur Komplain lama.", 409);
     assertOwner(req, before.kategori);
     if (["solved", "cancelled"].includes(before.status)) reject("Tiket selesai tidak dapat diedit.", 409);
-    const after = await tx.tiket.update({ where: { id: before.id }, data: { ...body, ...(body.tanggal_akhir !== undefined ? { tanggal_akhir: body.tanggal_akhir ? new Date(body.tanggal_akhir) : null } : {}), tanggal_diperbarui: new Date() } });
+    if (body.sales_id) {
+      const sales = await tx.master_pengguna.findUnique({ where: { id: body.sales_id } });
+      if (!sales?.aktif || sales.peran !== "sales") reject("Sales harus user ber-role Sales aktif.");
+    }
+    const after = await tx.tiket.update({ where: { id: before.id }, data: { ...body, ...(body.tanggal_transaksi ? { tanggal_transaksi: new Date(body.tanggal_transaksi) } : {}), ...(body.tanggal_akhir !== undefined ? { tanggal_akhir: body.tanggal_akhir ? new Date(body.tanggal_akhir) : null } : {}), tanggal_diperbarui: new Date() } });
     await catatAudit(tx, req, { jenis_dokumen: "tiket", nomor_dokumen: after.nomor_tiket, tabel_sumber: "tiket", id_sumber: after.id, aksi: "ubah", data_sebelum: before, data_sesudah: after, keterangan: "Tiket diperbarui." });
     return after;
   });
@@ -236,11 +247,13 @@ router.post("/:id/resolve", izin("tiket", "resolve", "sales-admin", "kepala-tekn
   const item = await prisma.$transaction(async (tx) => {
     const before = await tx.tiket.findUnique({ where: { id: req.params.id }, include: { surat_tugas: true } });
     if (!before) return null;
+    if (role(req) !== "admin") reject("Penutupan Tiket sementara hanya dapat dilakukan oleh admin.", 403);
     if (before.pengaduan_lama_id) reject("Tiket arsip diselesaikan melalui alur Komplain lama.", 409);
     assertOwner(req, before.kategori);
     if (["solved", "cancelled"].includes(before.status)) reject("Tiket sudah ditutup.", 409);
     const required = tugasWajib(before.kategori, before.jenis, before.mode);
     if (required.some((jenis) => !before.surat_tugas.some((st) => st.jenis_tugas === jenis && st.status === "solved"))) reject("Seluruh jenis ST wajib harus selesai sebelum tiket ditutup.", 409);
+    if (!before.surat_tugas.some((st) => st.status === "solved")) reject("Minimal satu Surat Tugas harus selesai sebelum tiket ditutup.", 409);
     if (before.surat_tugas.some((st) => st.status !== "solved" && st.status !== "cancelled")) reject("Masih ada ST yang berjalan.", 409);
     if (before.jenis === "trial" && !["berhasil", "gagal", "batal"].includes(before.hasil)) reject("Hasil TRIAL harus dicatat sebelum ditutup.", 409);
     const claimed = await tx.tiket.updateMany({
