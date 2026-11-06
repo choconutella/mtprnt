@@ -181,7 +181,10 @@ onMounted(load);
 
 <template>
   <div class="space-y-6">
-    <UPageHeader :title="title" :description="description" />
+    <UPageHeader
+      :title="title"
+      :description="description"
+    />
 
     <UAlert
       v-if="errorMessage"
@@ -230,9 +233,16 @@ onMounted(load);
     </UCard>
 
     <UCard>
-      <UTable :data="rows" :columns="columns" :loading="loading">
+      <UTable
+        :data="rows"
+        :columns="columns"
+        :loading="loading"
+      >
         <template #jenis_gudang-cell="{ row }">
-          <UBadge color="info" variant="subtle">
+          <UBadge
+            color="info"
+            variant="subtle"
+          >
             {{
               jenisOptions.find(
                 (item) => item.value === row.original.jenis_gudang,
@@ -249,7 +259,10 @@ onMounted(load);
           </UBadge>
         </template>
         <template #actions-cell="{ row }">
-          <div v-if="canWrite" class="flex flex-wrap gap-1">
+          <div
+            v-if="canWrite"
+            class="flex flex-wrap gap-1"
+          >
             <UButton
               size="xs"
               color="neutral"
@@ -276,7 +289,12 @@ onMounted(load);
               @click="hardDelete(row.original)"
             />
           </div>
-          <span v-else class="text-sm text-dimmed"> - </span>
+          <span
+            v-else
+            class="text-sm text-dimmed"
+          >
+            -
+          </span>
         </template>
       </UTable>
       <div class="mt-4 flex justify-end">
@@ -293,16 +311,38 @@ onMounted(load);
       :title="editing ? `Edit ${title}` : `Tambah ${title}`"
     >
       <template #body>
-        <UForm :state="form" class="space-y-4" @submit="save">
+        <UForm
+          :state="form"
+          class="space-y-4"
+          @submit="save"
+        >
           <div class="grid gap-4 sm:grid-cols-2">
-            <UFormField label="Kode Gudang" name="kode_gudang" required>
-              <UInput v-model="form.kode_gudang" class="w-full" />
+            <UFormField
+              label="Kode Gudang"
+              name="kode_gudang"
+              required
+            >
+              <UInput
+                v-model="form.kode_gudang"
+                class="w-full"
+              />
             </UFormField>
-            <UFormField label="Nama Gudang" name="nama_gudang" required>
-              <UInput v-model="form.nama_gudang" class="w-full" />
+            <UFormField
+              label="Nama Gudang"
+              name="nama_gudang"
+              required
+            >
+              <UInput
+                v-model="form.nama_gudang"
+                class="w-full"
+              />
             </UFormField>
           </div>
-          <UFormField label="Jenis Gudang" name="jenis_gudang" required>
+          <UFormField
+            label="Jenis Gudang"
+            name="jenis_gudang"
+            required
+          >
             <USelect
               v-model="form.jenis_gudang"
               :items="jenisOptions"
@@ -322,11 +362,26 @@ onMounted(load);
               class="w-full"
             />
           </UFormField>
-          <UFormField label="Alamat" name="alamat">
-            <UTextarea v-model="form.alamat" class="w-full" />
+          <UFormField
+            label="Alamat"
+            name="alamat"
+          >
+            <UTextarea
+              v-model="form.alamat"
+              class="w-full"
+            />
           </UFormField>
-          <UCheckbox v-model="form.aktif" label="Aktif" />
-          <UButton type="submit" block :loading="saving"> Simpan </UButton>
+          <UCheckbox
+            v-model="form.aktif"
+            label="Aktif"
+          />
+          <UButton
+            type="submit"
+            block
+            :loading="saving"
+          >
+            Simpan
+          </UButton>
         </UForm>
       </template>
     </UModal>

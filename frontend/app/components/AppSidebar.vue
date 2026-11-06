@@ -38,7 +38,10 @@ function handleLogout() {
     </div>
     <UScrollArea class="flex-1 px-3 py-4">
       <nav class="space-y-5">
-        <section v-for="group in navigationGroups" :key="group.label">
+        <section
+          v-for="group in navigationGroups"
+          :key="group.label"
+        >
           <p
             class="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-dimmed"
           >

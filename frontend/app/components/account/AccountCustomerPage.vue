@@ -374,19 +374,29 @@ onMounted(initialize);
       </div>
     </UCard>
     <UCard>
-      <UTable :data="rows" :columns="columns" :loading="loading">
+      <UTable
+        :data="rows"
+        :columns="columns"
+        :loading="loading"
+      >
         <template #master_account-cell="{ row }">{{
           row.original.master_account?.nama_account || "-"
         }}</template>
-        <template #aktif-cell="{ row }"
-          ><UBadge
+        <template
+          #aktif-cell="{ row }"
+        >
+          <UBadge
             :color="row.original.aktif ? 'success' : 'neutral'"
             variant="subtle"
-            >{{ row.original.aktif ? "Aktif" : "Nonaktif" }}</UBadge
-          ></template
-        >
+          >
+            {{ row.original.aktif ? "Aktif" : "Nonaktif" }}
+          </UBadge>
+        </template>
         <template #actions-cell="{ row }">
-          <div v-if="canWrite" class="flex gap-1">
+          <div
+            v-if="canWrite"
+            class="flex gap-1"
+          >
             <UButton
               size="xs"
               color="neutral"
@@ -411,11 +421,20 @@ onMounted(initialize);
               @click="remove(row.original)"
             />
           </div>
-          <span v-else class="text-sm text-dimmed">-</span>
+          <span
+            v-else
+            class="text-sm text-dimmed"
+          >
+            -
+          </span>
         </template>
       </UTable>
       <div class="mt-4 flex justify-end">
-        <UPagination v-model:page="page" :page-count="10" :total="total" />
+        <UPagination
+          v-model:page="page"
+          :page-count="10"
+          :total="total"
+        />
       </div>
     </UCard>
     <UModal
@@ -424,7 +443,11 @@ onMounted(initialize);
       :ui="{ content: 'sm:max-w-2xl' }"
     >
       <template #body>
-        <UForm :state="form" class="space-y-4" @submit="save">
+        <UForm
+          :state="form"
+          class="space-y-4"
+          @submit="save"
+        >
           <UAlert
             v-if="formError"
             color="error"
@@ -432,18 +455,39 @@ onMounted(initialize);
             :title="formError"
           />
           <div class="grid gap-4 sm:grid-cols-2">
-            <UFormField label="Kode Customer" required
-              ><UInput v-model="form.kode_customer" class="w-full"
-            /></UFormField>
-            <UFormField label="Nama Customer" required
-              ><UInput v-model="form.nama_customer" class="w-full"
-            /></UFormField>
+            <UFormField
+              label="Kode Customer"
+              required
+            >
+              <UInput
+                v-model="form.kode_customer"
+                class="w-full"
+              />
+            </UFormField>
+            <UFormField
+              label="Nama Customer"
+              required
+            >
+              <UInput
+                v-model="form.nama_customer"
+                class="w-full"
+              />
+            </UFormField>
           </div>
-          <UFormField v-if="!editing" label="Billing">
-            <UCheckbox v-model="form.sendiri" label="Sendiri" />
+          <UFormField
+            v-if="!editing"
+            label="Billing"
+          >
+            <UCheckbox
+              v-model="form.sendiri"
+              label="Sendiri"
+            />
           </UFormField>
-          <UFormField label="Pilih Billing" required
-            ><USelectMenu
+          <UFormField
+            label="Pilih Billing"
+            required
+          >
+            <USelectMenu
               v-model="form.account_id"
               :items="billingOptions"
               value-key="value"
@@ -453,22 +497,51 @@ onMounted(initialize);
               searchable-placeholder="Ketik untuk mencari Billing"
               placeholder="Pilih Billing"
               class="w-full"
-          /></UFormField>
+            />
+          </UFormField>
           <div class="grid gap-4 sm:grid-cols-2">
-            <UFormField label="Nama PIC"
-              ><UInput v-model="form.nama_pic" class="w-full"
-            /></UFormField>
-            <UFormField label="Telepon PIC"
-              ><UInput v-model="form.telepon_pic" class="w-full"
-            /></UFormField>
-            <UFormField label="Email PIC"
-              ><UInput v-model="form.email_pic" type="email" class="w-full"
-            /></UFormField>
+            <UFormField
+              label="Nama PIC"
+            >
+              <UInput
+                v-model="form.nama_pic"
+                class="w-full"
+              />
+            </UFormField>
+            <UFormField
+              label="Telepon PIC"
+            >
+              <UInput
+                v-model="form.telepon_pic"
+                class="w-full"
+              />
+            </UFormField>
+            <UFormField
+              label="Email PIC"
+            >
+              <UInput
+                v-model="form.email_pic"
+                type="email"
+                class="w-full"
+              />
+            </UFormField>
           </div>
-          <UFormField label="Alamat" required
-            ><UTextarea v-model="form.alamat" class="w-full"
-          /></UFormField>
-          <UButton type="submit" block :loading="saving">Simpan</UButton>
+          <UFormField
+            label="Alamat"
+            required
+          >
+            <UTextarea
+              v-model="form.alamat"
+              class="w-full"
+            />
+          </UFormField>
+          <UButton
+            type="submit"
+            block
+            :loading="saving"
+          >
+            Simpan
+          </UButton>
         </UForm>
       </template>
     </UModal>
@@ -478,7 +551,11 @@ onMounted(initialize);
       :ui="{ content: 'sm:max-w-2xl' }"
     >
       <template #body>
-        <UForm :state="billingForm" class="space-y-4" @submit="saveBilling">
+        <UForm
+          :state="billingForm"
+          class="space-y-4"
+          @submit="saveBilling"
+        >
           <UAlert
             v-if="billingFormError"
             color="error"
@@ -486,29 +563,69 @@ onMounted(initialize);
             :title="billingFormError"
           />
           <div class="grid gap-4 sm:grid-cols-2">
-            <UFormField label="Kode Account" required
-              ><UInput v-model="billingForm.kode_account" class="w-full"
-            /></UFormField>
-            <UFormField label="Nama Account" required
-              ><UInput v-model="billingForm.nama_account" class="w-full"
-            /></UFormField>
-            <UFormField label="NPWP"
-              ><UInput v-model="billingForm.npwp" class="w-full"
-            /></UFormField>
-            <UFormField label="Telepon Utama"
-              ><UInput v-model="billingForm.telepon" class="w-full"
-            /></UFormField>
-            <UFormField label="Email Utama"
-              ><UInput v-model="billingForm.email" type="email" class="w-full"
-            /></UFormField>
+            <UFormField
+              label="Kode Account"
+              required
+            >
+              <UInput
+                v-model="billingForm.kode_account"
+                class="w-full"
+              />
+            </UFormField>
+            <UFormField
+              label="Nama Account"
+              required
+            >
+              <UInput
+                v-model="billingForm.nama_account"
+                class="w-full"
+              />
+            </UFormField>
+            <UFormField
+              label="NPWP"
+            >
+              <UInput
+                v-model="billingForm.npwp"
+                class="w-full"
+              />
+            </UFormField>
+            <UFormField
+              label="Telepon Utama"
+            >
+              <UInput
+                v-model="billingForm.telepon"
+                class="w-full"
+              />
+            </UFormField>
+            <UFormField
+              label="Email Utama"
+            >
+              <UInput
+                v-model="billingForm.email"
+                type="email"
+                class="w-full"
+              />
+            </UFormField>
           </div>
-          <UFormField label="Alamat Penagihan"
-            ><UTextarea v-model="billingForm.alamat_penagihan" class="w-full"
-          /></UFormField>
-          <UCheckbox v-model="billingForm.aktif" label="Aktif" />
-          <UButton type="submit" block :loading="billingSaving"
-            >Simpan Billing</UButton
+          <UFormField
+            label="Alamat Penagihan"
           >
+            <UTextarea
+              v-model="billingForm.alamat_penagihan"
+              class="w-full"
+            />
+          </UFormField>
+          <UCheckbox
+            v-model="billingForm.aktif"
+            label="Aktif"
+          />
+          <UButton
+            type="submit"
+            block
+            :loading="billingSaving"
+          >
+            Simpan Billing
+          </UButton>
         </UForm>
       </template>
     </UModal>

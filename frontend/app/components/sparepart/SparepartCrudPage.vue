@@ -149,7 +149,10 @@ onMounted(loadRows);
 
 <template>
   <div class="space-y-6">
-    <UPageHeader :title="title" :description="description" />
+    <UPageHeader
+      :title="title"
+      :description="description"
+    />
 
     <UAlert
       v-if="errorMessage"
@@ -193,16 +196,24 @@ onMounted(loadRows);
     </UCard>
 
     <UCard>
-      <UTable :data="rows" :columns="columns" :loading="loading">
+      <UTable
+        :data="rows"
+        :columns="columns"
+        :loading="loading"
+      >
         <template #aktif-cell="{ row }">
           <UBadge
             :color="row.original.aktif ? 'success' : 'neutral'"
             variant="subtle"
-            >{{ row.original.aktif ? "Aktif" : "Nonaktif" }}</UBadge
           >
+            {{ row.original.aktif ? "Aktif" : "Nonaktif" }}
+          </UBadge>
         </template>
         <template #actions-cell="{ row }">
-          <div v-if="canWrite" class="flex flex-wrap gap-1">
+          <div
+            v-if="canWrite"
+            class="flex flex-wrap gap-1"
+          >
             <UButton
               size="xs"
               color="neutral"
@@ -229,7 +240,12 @@ onMounted(loadRows);
               @click="hardDelete(row.original)"
             />
           </div>
-          <span v-else class="text-sm text-dimmed">-</span>
+          <span
+            v-else
+            class="text-sm text-dimmed"
+          >
+            -
+          </span>
         </template>
       </UTable>
       <div class="mt-4 flex justify-end">
@@ -246,15 +262,42 @@ onMounted(loadRows);
       :title="editing ? `Edit ${title}` : `Tambah ${title}`"
     >
       <template #body>
-        <UForm :state="form" class="space-y-4" @submit="save">
-          <UFormField label="Kode Sparepart" name="kode_suku_cadang" required
-            ><UInput v-model="form.kode_suku_cadang" class="w-full"
-          /></UFormField>
-          <UFormField label="Nama Sparepart" name="nama_suku_cadang" required
-            ><UInput v-model="form.nama_suku_cadang" class="w-full"
-          /></UFormField>
-          <UCheckbox v-model="form.aktif" label="Aktif" />
-          <UButton type="submit" block :loading="saving">Simpan</UButton>
+        <UForm
+          :state="form"
+          class="space-y-4"
+          @submit="save"
+        >
+          <UFormField
+            label="Kode Sparepart"
+            name="kode_suku_cadang"
+            required
+          >
+            <UInput
+              v-model="form.kode_suku_cadang"
+              class="w-full"
+            />
+          </UFormField>
+          <UFormField
+            label="Nama Sparepart"
+            name="nama_suku_cadang"
+            required
+          >
+            <UInput
+              v-model="form.nama_suku_cadang"
+              class="w-full"
+            />
+          </UFormField>
+          <UCheckbox
+            v-model="form.aktif"
+            label="Aktif"
+          />
+          <UButton
+            type="submit"
+            block
+            :loading="saving"
+          >
+            Simpan
+          </UButton>
         </UForm>
       </template>
     </UModal>

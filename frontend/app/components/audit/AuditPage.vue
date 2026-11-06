@@ -134,23 +134,38 @@ watch(totalPages, (value) => {
     <UCard>
       <div class="overflow-x-auto pb-1">
         <div class="flex min-w-[850px] items-end gap-3">
-          <UFormField label="Tanggal Mulai" class="w-40 shrink-0"
-            ><UInput v-model="filter.tanggal_mulai" type="date" class="w-full"
-          /></UFormField>
-          <UFormField label="Tanggal Selesai" class="w-40 shrink-0"
-            ><UInput
+          <UFormField
+            label="Tanggal Mulai"
+            class="w-40 shrink-0"
+          >
+            <UInput
+              v-model="filter.tanggal_mulai"
+              type="date"
+              class="w-full"
+            />
+          </UFormField>
+          <UFormField
+            label="Tanggal Selesai"
+            class="w-40 shrink-0"
+          >
+            <UInput
               v-model="filter.tanggal_selesai"
               type="date"
               class="w-full"
-          /></UFormField>
-          <UFormField label="Search" class="min-w-56 flex-1"
-            ><UInput
+            />
+          </UFormField>
+          <UFormField
+            label="Search"
+            class="min-w-56 flex-1"
+          >
+            <UInput
               v-model="filter.search"
               icon="i-lucide-search"
               placeholder="Nama user, TKT..., atau ST..."
               class="w-full"
               @keyup.enter="loadAudit"
-          /></UFormField>
+            />
+          </UFormField>
           <UButton
             color="neutral"
             variant="outline"
@@ -188,25 +203,38 @@ watch(totalPages, (value) => {
           class="w-32"
         />
       </div>
-      <UTable :data="visibleRows" :columns="columns" :loading="loading">
-        <template #event_nama-cell="{ row }"
-          ><UBadge color="neutral" variant="subtle">{{
-            row.original.event_nama || row.original.aksi || "-"
-          }}</UBadge></template
+      <UTable
+        :data="visibleRows"
+        :columns="columns"
+        :loading="loading"
+      >
+        <template
+          #event_nama-cell="{ row }"
         >
+          <UBadge
+            color="neutral"
+            variant="subtle"
+          >{{
+            row.original.event_nama || row.original.aksi || "-"
+          }}</UBadge>
+        </template>
         <template #tanggal_audit-cell="{ row }">{{
           formatDateTime(row.original.tanggal_audit)
         }}</template>
         <template #nama_pengguna-cell="{ row }">{{
           row.original.nama_pengguna || "-"
         }}</template>
-        <template #tabel_keterangan-cell="{ row }"
-          ><span class="whitespace-normal">{{
-            row.original.tabel_keterangan || row.original.keterangan || "-"
-          }}</span></template
+        <template
+          #tabel_keterangan-cell="{ row }"
         >
-        <template #empty
-          ><div class="py-10 text-center text-sm text-dimmed">
+          <span class="whitespace-normal">{{
+            row.original.tabel_keterangan || row.original.keterangan || "-"
+          }}</span>
+        </template>
+        <template
+          #empty
+        >
+          <div class="py-10 text-center text-sm text-dimmed">
             {{
               loading
                 ? "Memuat audit..."
@@ -214,14 +242,14 @@ watch(totalPages, (value) => {
                   ? "Audit tidak ditemukan."
                   : "Isi filter lalu pilih Tampilkan Audit."
             }}
-          </div></template
-        >
+          </div>
+        </template>
       </UTable>
       <div
         class="mt-4 flex flex-col gap-3 text-sm text-dimmed sm:flex-row sm:items-center sm:justify-between"
       >
-        <span>{{ rangeStart }}-{{ rangeEnd }} dari {{ rows.length }} event</span
-        ><UPagination
+        <span>{{ rangeStart }}-{{ rangeEnd }} dari {{ rows.length }} event</span>
+        <UPagination
           v-model:page="page"
           :page-count="pageSize"
           :total="rows.length"

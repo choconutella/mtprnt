@@ -4,6 +4,21 @@
 
 ### Fixed
 
+- Surat Tugas berstatus `solved` kini dibuka dalam mode lihat saja: tab Detil menampilkan nilai sebagai field readonly, sementara aksi perubahan disembunyikan dan tab lain tetap dapat dibaca.
+- Tombol Simpan pada ST alur baru kini memakai endpoint edit khusus untuk menyimpan hasil pekerjaan; service tidak lagi mengarahkannya ke validasi ST lama.
+- Aksi Selesai Pekerjaan kini memeriksa Hasil Unit pada popup Edit dan menyimpan perubahan unit sebelum mengirim transisi workflow; unit yang belum diisi ditunjukkan secara spesifik.
+- Menghapus popup Detail Surat Tugas lama; daftar dan Tiket tetap membuka popup Edit Surat Tugas yang memiliki tab Detil, Items, dan Unit Printer.
+- Tab Unit Printer kini tersedia dalam popup Edit Surat Tugas yang memiliki unit, termasuk Maintenance; hasil per unit disimpan bersama perubahan ST melalui satu tombol Simpan sebelum aksi Selesai Pekerjaan.
+- Mengubah label aksi `Konfirmasi Serah` menjadi `Konfirmasi Pengembalian` pada seluruh UI Surat Tugas.
+- Menghapus seluruh aksi aktif `Siap Cetak` dari service, frontend, dan UI lama; alur setelah `progress` kini langsung menggunakan aksi pekerjaan berikutnya. Nilai status legacy `ready_to_print` tetap dipertahankan di schema untuk kompatibilitas data lama.
+- Tab Items pada Maintenance kini hanya menampilkan pemakaian toner/sparepart; unit yang diservis tetap dipilih pada Detil. Jenis pengiriman tetap menampilkan printer pada Items.
+- Tab `Items` kini tampil juga untuk Surat Tugas `Maintenance` setelah Jenis Surat Tugas dipilih.
+- Maintenance mandiri kini dapat dibuat untuk unit printer di Gudang tanpa Account/Customer; service memvalidasi kesesuaian lokasi unit dan Gudang, dan form edit tetap dapat menyimpan ST tersebut.
+- Form Surat Tugas kini menampilkan `Jenis Surat Tugas` terlebih dahulu; field lain dan tab Items muncul setelah jenis dipilih, sementara Tiket terkait tetap terlihat.
+- Jenis Surat Tugas `Maintenance` kini hanya menampilkan field `MP No (Unit Printer)`, `Gudang`, dan `PIC Teknisi`.
+- Pilihan `MP No (Unit Printer)` pada `Maintenance` kini difilter berdasarkan Gudang yang dipilih.
+- Menyembunyikan field `Tiket` pada form Buat Surat Tugas langsung dari `/surat-tugas`; field tetap tampil baca-saja saat form dibuka dari modal Tiket atau saat Surat Tugas yang diedit memiliki tiket terkait.
+- Membangun ulang container `frontend` dan `service` pada 2026-11-06 serta memperbarui kedua export image TAR.
 - Menampilkan checkbox `Sendiri` hanya pada modal Tambah Customer; modal Edit Customer langsung menampilkan pilihan Billing.
 - Menghapus menu `Lokasi Customer` dan `Lokasi`, serta memindahkan `Master Gudang` menjadi menu langsung di bawah `Master Data`.
 - Memformat pilihan `Model` pada modal Tambah Unit Printer di halaman Stok Printer menjadi `Merk Printer - Model Printer (Kategori Printer)`.

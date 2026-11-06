@@ -449,7 +449,8 @@ onMounted(load)
       >
         <p class="text-sm text-dimmed">
           {{ item.label }}
-        </p><p class="mt-2 text-2xl font-semibold text-highlighted">
+        </p>
+        <p class="mt-2 text-2xl font-semibold text-highlighted">
           {{ summary[item.key as keyof typeof summary] }}
         </p>
       </UCard>
@@ -677,7 +678,8 @@ onMounted(load)
                   v-model="form.tanggal_pembelian"
                   type="date"
                 />
-              </UFormField><UFormField label="Maintenance Berikutnya">
+              </UFormField>
+              <UFormField label="Maintenance Berikutnya">
                 <UInput
                   v-model="form.tanggal_maintenance_berikutnya"
                   type="date"
@@ -721,14 +723,22 @@ onMounted(load)
       title="Buat Model Printer"
     >
       <template #body>
-        <UForm :state="newModel" class="space-y-4" @submit="createModel">
+        <UForm
+          :state="newModel"
+          class="space-y-4"
+          @submit="createModel"
+        >
           <UAlert
             v-if="modelError"
             color="error"
             variant="subtle"
             :title="modelError"
           />
-          <UFormField label="Kategori" name="kategori_id" required>
+          <UFormField
+            label="Kategori"
+            name="kategori_id"
+            required
+          >
             <USelect
               v-model="quickModelCategorySelection"
               :items="quickModelCategoryOptions"
@@ -736,18 +746,52 @@ onMounted(load)
               class="w-full"
             />
           </UFormField>
-          <UFormField label="Kode Model" name="kode_model" required>
-            <UInput v-model="newModel.kode_model" class="w-full" />
+          <UFormField
+            label="Kode Model"
+            name="kode_model"
+            required
+          >
+            <UInput
+              v-model="newModel.kode_model"
+              class="w-full"
+            />
           </UFormField>
-          <UFormField label="Merek" name="merek" required>
-            <UInput v-model="newModel.merek" class="w-full" />
+          <UFormField
+            label="Merek"
+            name="merek"
+            required
+          >
+            <UInput
+              v-model="newModel.merek"
+              class="w-full"
+            />
           </UFormField>
-          <UFormField label="Nama Model" name="nama_model" required>
-            <UInput v-model="newModel.nama_model" class="w-full" />
+          <UFormField
+            label="Nama Model"
+            name="nama_model"
+            required
+          >
+            <UInput
+              v-model="newModel.nama_model"
+              class="w-full"
+            />
           </UFormField>
           <div class="flex justify-end gap-2">
-            <UButton type="button" color="neutral" variant="ghost" @click="modelModalOpen = false">Batal</UButton>
-            <UButton type="submit" :loading="modelSaving" :disabled="categoryModalOpen">Simpan Model</UButton>
+            <UButton
+              type="button"
+              color="neutral"
+              variant="ghost"
+              @click="modelModalOpen = false"
+            >
+              Batal
+            </UButton>
+            <UButton
+              type="submit"
+              :loading="modelSaving"
+              :disabled="categoryModalOpen"
+            >
+              Simpan Model
+            </UButton>
           </div>
         </UForm>
       </template>
@@ -758,17 +802,52 @@ onMounted(load)
       title="Buat Kategori Printer"
     >
       <template #body>
-        <UForm :state="newCategory" class="space-y-4" @submit="createCategory">
-          <UAlert v-if="categoryError" color="error" variant="subtle" :title="categoryError" />
-          <UFormField label="Kode Kategori" name="kode_kategori" required>
-            <UInput v-model="newCategory.kode_kategori" class="w-full" />
+        <UForm
+          :state="newCategory"
+          class="space-y-4"
+          @submit="createCategory"
+        >
+          <UAlert
+            v-if="categoryError"
+            color="error"
+            variant="subtle"
+            :title="categoryError"
+          />
+          <UFormField
+            label="Kode Kategori"
+            name="kode_kategori"
+            required
+          >
+            <UInput
+              v-model="newCategory.kode_kategori"
+              class="w-full"
+            />
           </UFormField>
-          <UFormField label="Nama Kategori" name="nama_kategori" required>
-            <UInput v-model="newCategory.nama_kategori" class="w-full" />
+          <UFormField
+            label="Nama Kategori"
+            name="nama_kategori"
+            required
+          >
+            <UInput
+              v-model="newCategory.nama_kategori"
+              class="w-full"
+            />
           </UFormField>
           <div class="flex justify-end gap-2">
-            <UButton type="button" color="neutral" variant="ghost" @click="categoryModalOpen = false">Batal</UButton>
-            <UButton type="submit" :loading="categorySaving">Simpan Kategori</UButton>
+            <UButton
+              type="button"
+              color="neutral"
+              variant="ghost"
+              @click="categoryModalOpen = false"
+            >
+              Batal
+            </UButton>
+            <UButton
+              type="submit"
+              :loading="categorySaving"
+            >
+              Simpan Kategori
+            </UButton>
           </div>
         </UForm>
       </template>
@@ -779,26 +858,85 @@ onMounted(load)
       title="Buat Gudang"
     >
       <template #body>
-        <UForm :state="newWarehouse" class="space-y-4" @submit="createWarehouse">
-          <UAlert v-if="warehouseError" color="error" variant="subtle" :title="warehouseError" />
-          <UFormField label="Kode Gudang" name="kode_gudang" required>
-            <UInput v-model="newWarehouse.kode_gudang" class="w-full" />
+        <UForm
+          :state="newWarehouse"
+          class="space-y-4"
+          @submit="createWarehouse"
+        >
+          <UAlert
+            v-if="warehouseError"
+            color="error"
+            variant="subtle"
+            :title="warehouseError"
+          />
+          <UFormField
+            label="Kode Gudang"
+            name="kode_gudang"
+            required
+          >
+            <UInput
+              v-model="newWarehouse.kode_gudang"
+              class="w-full"
+            />
           </UFormField>
-          <UFormField label="Nama Gudang" name="nama_gudang" required>
-            <UInput v-model="newWarehouse.nama_gudang" class="w-full" />
+          <UFormField
+            label="Nama Gudang"
+            name="nama_gudang"
+            required
+          >
+            <UInput
+              v-model="newWarehouse.nama_gudang"
+              class="w-full"
+            />
           </UFormField>
-          <UFormField label="Jenis Gudang" name="jenis_gudang" required>
-            <USelect v-model="newWarehouse.jenis_gudang" :items="warehouseTypeOptions" class="w-full" />
+          <UFormField
+            label="Jenis Gudang"
+            name="jenis_gudang"
+            required
+          >
+            <USelect
+              v-model="newWarehouse.jenis_gudang"
+              :items="warehouseTypeOptions"
+              class="w-full"
+            />
           </UFormField>
-          <UFormField v-if="newWarehouse.jenis_gudang === 'teknisi'" label="Teknisi" name="teknisi_id" required>
-            <USelect v-model="newWarehouse.teknisi_id" :items="technicianOptions" placeholder="Pilih teknisi" class="w-full" />
+          <UFormField
+            v-if="newWarehouse.jenis_gudang === 'teknisi'"
+            label="Teknisi"
+            name="teknisi_id"
+            required
+          >
+            <USelect
+              v-model="newWarehouse.teknisi_id"
+              :items="technicianOptions"
+              placeholder="Pilih teknisi"
+              class="w-full"
+            />
           </UFormField>
-          <UFormField label="Alamat" name="alamat">
-            <UTextarea v-model="newWarehouse.alamat" class="w-full" />
+          <UFormField
+            label="Alamat"
+            name="alamat"
+          >
+            <UTextarea
+              v-model="newWarehouse.alamat"
+              class="w-full"
+            />
           </UFormField>
           <div class="flex justify-end gap-2">
-            <UButton type="button" color="neutral" variant="ghost" @click="warehouseModalOpen = false">Batal</UButton>
-            <UButton type="submit" :loading="warehouseSaving">Simpan Gudang</UButton>
+            <UButton
+              type="button"
+              color="neutral"
+              variant="ghost"
+              @click="warehouseModalOpen = false"
+            >
+              Batal
+            </UButton>
+            <UButton
+              type="submit"
+              :loading="warehouseSaving"
+            >
+              Simpan Gudang
+            </UButton>
           </div>
         </UForm>
       </template>

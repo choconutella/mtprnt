@@ -146,7 +146,6 @@ const technicianLoad = computed(() => {
   const active = new Set([
     "pending",
     "progress",
-    "ready_to_print",
     "technician_completed",
     "warehouse_validated",
   ]);
@@ -264,7 +263,8 @@ onMounted(loadDashboard);
       <UPageHeader
         title="Dashboard"
         description="Ringkasan operasional MultiPrint."
-      /><UButton
+      />
+      <UButton
         color="neutral"
         variant="outline"
         icon="i-lucide-refresh-cw"
@@ -280,8 +280,11 @@ onMounted(loadDashboard);
       :title="errorMessage"
     />
     <div class="grid gap-4 md:grid-cols-3">
-      <UCard v-for="card in cards" :key="card.label"
-        ><div class="flex items-start justify-between">
+      <UCard
+        v-for="card in cards"
+        :key="card.label"
+      >
+        <div class="flex items-start justify-between">
           <div>
             <p class="text-sm text-dimmed">{{ card.label }}</p>
             <p class="mt-2 text-3xl font-semibold text-highlighted">
@@ -289,19 +292,27 @@ onMounted(loadDashboard);
             </p>
             <p class="mt-1 text-xs text-dimmed">{{ card.note }}</p>
           </div>
-          <UIcon :name="card.icon" class="size-7 text-primary" /></div
-      ></UCard>
+          <UIcon
+            :name="card.icon"
+            class="size-7 text-primary"
+          />
+        </div>
+      </UCard>
     </div>
     <div class="grid gap-4 xl:grid-cols-2">
       <UCard
-        ><div class="mb-5 flex items-center justify-between">
+        >
+        <div class="mb-5 flex items-center justify-between">
           <div>
             <h2 class="font-semibold text-highlighted">Tren Tiket</h2>
             <p class="text-sm text-dimmed">7 hari terakhir</p>
           </div>
-          <UBadge color="info" variant="subtle"
-            >{{ tickets.length }} total</UBadge
+          <UBadge
+            color="info"
+            variant="subtle"
           >
+            {{ tickets.length }} total
+          </UBadge>
         </div>
         <div class="flex h-48 items-end gap-3">
           <div
@@ -320,17 +331,21 @@ onMounted(loadDashboard);
             </div>
             <span class="text-xs text-dimmed">{{ item.label }}</span>
           </div>
-        </div></UCard
-      >
+        </div>
+      </UCard>
       <UCard
-        ><div class="mb-5 flex items-center justify-between">
+        >
+        <div class="mb-5 flex items-center justify-between">
           <div>
             <h2 class="font-semibold text-highlighted">Status Tiket</h2>
             <p class="text-sm text-dimmed">Distribusi status tiket</p>
           </div>
-          <UBadge color="neutral" variant="subtle"
-            >{{ tickets.length }} total</UBadge
+          <UBadge
+            color="neutral"
+            variant="subtle"
           >
+            {{ tickets.length }} total
+          </UBadge>
         </div>
         <div class="space-y-3">
           <div
@@ -350,17 +365,21 @@ onMounted(loadDashboard);
               item.value
             }}</span>
           </div>
-        </div></UCard
-      >
+        </div>
+      </UCard>
       <UCard
-        ><div class="mb-5 flex items-center justify-between">
+        >
+        <div class="mb-5 flex items-center justify-between">
           <div>
             <h2 class="font-semibold text-highlighted">Surat Tugas</h2>
             <p class="text-sm text-dimmed">7 hari terakhir</p>
           </div>
-          <UBadge color="info" variant="subtle"
-            >{{ workOrders.length }} total</UBadge
+          <UBadge
+            color="info"
+            variant="subtle"
           >
+            {{ workOrders.length }} total
+          </UBadge>
         </div>
         <div class="flex h-48 items-end gap-3">
           <div
@@ -379,10 +398,11 @@ onMounted(loadDashboard);
             </div>
             <span class="text-xs text-dimmed">{{ item.label }}</span>
           </div>
-        </div></UCard
-      >
+        </div>
+      </UCard>
       <UCard
-        ><div class="mb-5 flex items-center justify-between">
+        >
+        <div class="mb-5 flex items-center justify-between">
           <div>
             <h2 class="font-semibold text-highlighted">Komposisi Stok</h2>
             <p class="text-sm text-dimmed">Total stok tersedia</p>
@@ -392,10 +412,13 @@ onMounted(loadDashboard);
           }}</span>
         </div>
         <div class="space-y-4">
-          <div v-for="item in stockComposition" :key="item.label">
+          <div
+            v-for="item in stockComposition"
+            :key="item.label"
+          >
             <div class="mb-1 flex justify-between text-sm">
-              <span class="text-dimmed">{{ item.label }}</span
-              ><span class="font-medium text-highlighted">{{
+              <span class="text-dimmed">{{ item.label }}</span>
+              <span class="font-medium text-highlighted">{{
                 item.value
               }}</span>
             </div>
@@ -408,20 +431,31 @@ onMounted(loadDashboard);
                 }"
               />
             </div>
-          </div></div
-      ></UCard>
+          </div>
+
+        </div>
+      </UCard>
     </div>
     <UCard
-      ><div class="mb-5 flex items-center justify-between">
+      >
+      <div class="mb-5 flex items-center justify-between">
         <div>
           <h2 class="font-semibold text-highlighted">Beban Teknisi</h2>
           <p class="text-sm text-dimmed">Surat tugas aktif per teknisi</p>
         </div>
-        <UButton size="sm" color="neutral" variant="ghost" to="/surat-tugas"
-          >Lihat Surat Tugas</UButton
+        <UButton
+          size="sm"
+          color="neutral"
+          variant="ghost"
+          to="/surat-tugas"
         >
+          Lihat Surat Tugas
+        </UButton>
       </div>
-      <div v-if="technicianLoad.length" class="space-y-3">
+      <div
+        v-if="technicianLoad.length"
+        class="space-y-3"
+      >
         <div
           v-for="item in technicianLoad"
           :key="item.label"
@@ -441,9 +475,12 @@ onMounted(loadDashboard);
           }}</span>
         </div>
       </div>
-      <div v-else class="py-6 text-center text-sm text-dimmed">
+      <div
+        v-else
+        class="py-6 text-center text-sm text-dimmed"
+      >
         Belum ada beban teknisi aktif.
-      </div></UCard
-    >
+      </div>
+    </UCard>
   </div>
 </template>

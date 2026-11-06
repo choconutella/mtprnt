@@ -52,7 +52,7 @@ const include = {
   master_account: true,
   master_customer: true,
   surat_tugas: {
-    where: { jenis_pekerjaan: "maintenance", status: { in: ["progress", "ready_to_print", "technician_completed", "warehouse_validated"] } },
+    where: { jenis_pekerjaan: "maintenance", status: { in: ["progress", "technician_completed", "warehouse_validated"] } },
     select: { id: true },
     take: 1
   }

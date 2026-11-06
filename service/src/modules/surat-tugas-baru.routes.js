@@ -124,7 +124,10 @@ async function validateAsset(tx, body, ticket, line) {
   if (PENGIRIMAN_PRINTER.includes(body.jenis_tugas) && !(body.jenis_tugas === "kirim_kontrak" && ticket?.tiket_asal_id && printer.penempatan === "trial")) {
     if (printer.lokasi_jenis !== "gudang" || printer.kondisi !== "ready" || printer.surat_tugas_aktif_id) reject(`Unit ${line.mp_no} tidak READY di gudang.`);
   }
-  if (["on_site_service", "maintenance"].includes(body.jenis_tugas) && (printer.lokasi_jenis !== "customer" || printer.customer_id !== body.customer_id)) reject("Unit harus berada di customer tujuan.", 422);
+  if (body.jenis_tugas === "on_site_service" || (body.jenis_tugas === "maintenance" && ticket)) {
+    if (printer.lokasi_jenis !== "customer" || printer.customer_id !== body.customer_id) reject("Unit harus berada di customer tujuan.", 422);
+  }
+  if (body.jenis_tugas === "maintenance" && !ticket && (printer.lokasi_jenis !== "gudang" || printer.gudang_id !== body.gudang_id)) reject("Unit harus berada di gudang yang dipilih.", 422);
   if (["repair", "qc"].includes(body.jenis_tugas) && printer.lokasi_jenis !== "gudang") reject("Unit harus berada di gudang untuk QC/Repair.", 422);
   if (isInbound(body.jenis_tugas) && (printer.lokasi_jenis !== "customer" || body.customer_id && printer.customer_id !== body.customer_id)) reject("Unit belum berada di customer tujuan untuk diterima kembali.", 422);
   if (body.jenis_tugas === "terima_tukar" && printer.kontrak_id !== body.kontrak_id) reject("Unit yang diterima harus terikat kontrak TUKAR.", 422);
@@ -167,7 +170,8 @@ router.post("/", izin("surat_tugas", "create", "kepala-teknisi", "warehouse"), a
       const kontrak = body.kontrak_id ? await tx.master_kontrak.findUnique({ where: { id: body.kontrak_id } }) : null;
       if (!kontrak || kontrak.status !== "aktif" || kontrak.customer_id !== body.customer_id) reject("TUKAR membutuhkan kontrak aktif milik customer.", 422);
     }
-    if ((["delivery", "komplain", "maintenance"].includes(identity.kategori) || ["terima_return", "terima_tukar", "terima_unit_rusak"].includes(body.jenis_tugas)) && (!body.account_id || !body.customer_id)) reject("Account dan Customer wajib dipilih.", 422);
+    if ((["delivery", "komplain"].includes(identity.kategori) || body.jenis_tugas === "maintenance" && ticket || ["terima_return", "terima_tukar", "terima_unit_rusak"].includes(body.jenis_tugas)) && (!body.account_id || !body.customer_id)) reject("Account dan Customer wajib dipilih.", 422);
+    if (body.jenis_tugas === "maintenance" && !ticket && (body.account_id || body.customer_id)) reject("Maintenance gudang tidak menggunakan Account atau Customer.", 422);
     if (body.customer_id || body.account_id) await pastikanCustomerAccount(tx, body.account_id, body.customer_id);
     if (!isInbound(body.jenis_tugas) && !body.pic_teknisi_id) reject("PIC teknisi wajib dipilih.", 422);
     if (isInbound(body.jenis_tugas) && !body.pic_warehouse_id) reject("PIC Warehouse wajib dipilih.", 422);
@@ -179,7 +183,7 @@ router.post("/", izin("surat_tugas", "create", "kepala-teknisi", "warehouse"), a
       const pic = await tx.master_pengguna.findUnique({ where: { id: body.pic_teknisi_id } });
       if (!pic?.aktif || pic.peran !== "teknisi") reject("PIC harus user Teknisi aktif.", 422);
     }
-    if ((PENGIRIMAN_PRINTER.includes(body.jenis_tugas) || isInbound(body.jenis_tugas) || body.jenis_tugas === "kirim_toner") && !body.gudang_id) reject("Gudang wajib dipilih.", 422);
+    if ((PENGIRIMAN_PRINTER.includes(body.jenis_tugas) || isInbound(body.jenis_tugas) || body.jenis_tugas === "kirim_toner" || body.jenis_tugas === "maintenance" && !ticket) && !body.gudang_id) reject("Gudang wajib dipilih.", 422);
     if (body.gudang_id && !await tx.master_gudang.count({ where: { id: body.gudang_id, aktif: true } })) reject("Gudang tidak aktif.", 422);
     if (body.jenis_tugas === "internal_use" && !body.lokasi_internal) reject("Lokasi/divisi internal wajib diisi.", 422);
     if (body.jenis_tugas === "terima_printer_baru" && !body.sumber && body.printer.some((line) => !line.sumber)) reject("Sumber/pemasok setiap unit wajib diisi.", 422);
@@ -236,6 +240,44 @@ router.post("/", izin("surat_tugas", "create", "kepala-teknisi", "warehouse"), a
   return sukses(res, "Surat tugas berhasil dibuat.", created, 201);
 }));
 
+router.put("/:id", izin("surat_tugas", "update", "kepala-teknisi", "teknisi"), asyncHandler(async (req, res, next) => {
+  const body = z.object({
+    hasil: z.string().optional().nullable(),
+    account_id: z.string().uuid().optional().nullable(),
+    customer_id: z.string().uuid().optional().nullable(),
+    pic_teknisi_id: z.string().uuid().optional().nullable(),
+    jenis_pekerjaan: z.string().optional(),
+    mode: z.string().optional().nullable(),
+    printer_id: z.string().uuid().optional().nullable(),
+    mp_no: z.string().optional().nullable()
+  }).strict().parse(req.body);
+  const result = await prisma.$transaction(async (tx) => {
+    const surat = await loadNew(tx, req.params.id);
+    if (!surat) return null;
+    requireRole(req, ["kepala_teknisi", "teknisi"]);
+    if (role(req) === "teknisi") await requireAssigned(tx, req, surat.id);
+    if (["solved", "cancelled"].includes(surat.status)) reject("Surat Tugas yang sudah ditutup tidak dapat diedit.");
+    const current = {
+      account_id: surat.account_id, customer_id: surat.customer_id,
+      pic_teknisi_id: surat.teknisi_surat_tugas[0]?.teknisi_id,
+      jenis_pekerjaan: surat.jenis_pekerjaan, mode: surat.mode,
+      printer_id: surat.jenis_tugas === "maintenance" && !surat.tiket_id ? null : surat.surat_tugas_printer[0]?.printer_id,
+      mp_no: surat.mp_no
+    };
+    for (const key of Object.keys(current)) {
+      if (body[key] !== undefined && (body[key] || null) !== (current[key] || null)) {
+        reject(`Perubahan ${key} belum didukung pada ST baru.`, 422);
+      }
+    }
+    if (body.hasil === undefined || body.hasil === surat.hasil) return surat;
+    const after = await changeOnce(tx, surat, { hasil: body.hasil });
+    await auditSurat(tx, req, surat, after, "ubah", "Hasil pekerjaan diperbarui.");
+    return after;
+  });
+  if (!result) return next();
+  return sukses(res, "Surat tugas berhasil diperbarui.", result);
+}));
+
 router.post("/:id/start", izin("surat_tugas", "workflow", "kepala-teknisi", "warehouse"), asyncHandler(async (req, res, next) => {
   const result = await prisma.$transaction(async (tx) => {
     const surat = await loadNew(tx, req.params.id);
@@ -277,26 +319,12 @@ router.post("/:id/assign", izin("surat_tugas", "update", "kepala-teknisi"), asyn
   return sukses(res, "PIC teknisi ditugaskan.", result);
 }));
 
-router.post("/:id/ready-to-print", izin("surat_tugas", "workflow", "teknisi"), asyncHandler(async (req, res, next) => {
-  const result = await prisma.$transaction(async (tx) => {
-    const surat = await loadNew(tx, req.params.id);
-    if (!surat) return null;
-    await requireAssigned(tx, req, surat.id);
-    if (surat.status !== "progress") reject("ST harus progress sebelum siap dicetak.");
-    const after = await changeOnce(tx, surat, { status: "ready_to_print" });
-    await auditSurat(tx, req, surat, after, "ready_to_print", "Surat tugas siap dicetak.");
-    return after;
-  });
-  if (!result) return next();
-  return sukses(res, "Surat tugas siap dicetak.", result);
-}));
-
 router.post("/:id/keluar", izin("surat_tugas", "workflow", "warehouse"), asyncHandler(async (req, res) => {
   const result = await prisma.$transaction(async (tx) => {
     const surat = await loadNew(tx, req.params.id);
     if (!surat) reject("ST tidak ditemukan.", 404);
     requireRole(req, ["warehouse"]);
-    if (surat.status !== "ready_to_print" || surat.konfirmasi_keluar_pada) reject("Pengeluaran sudah dikonfirmasi atau ST belum siap dicetak.");
+    if (surat.status !== "progress" || surat.konfirmasi_keluar_pada) reject("Pengeluaran sudah dikonfirmasi atau ST belum berada pada tahap pekerjaan.");
     if (!PENGIRIMAN_PRINTER.includes(surat.jenis_tugas) && surat.jenis_tugas !== "kirim_toner" && !surat.pemakaian_barang_surat_tugas.length) reject("Jenis ST ini tidak mengeluarkan barang.");
     const after = await changeOnce(tx, surat, {
       konfirmasi_keluar_pada: new Date(), validasi_warehouse_oleh: req.pengguna.id,
@@ -342,7 +370,7 @@ router.post("/:id/serah", izin("surat_tugas", "workflow", "teknisi"), asyncHandl
     if (!surat) reject("ST tidak ditemukan.", 404);
     await requireAssigned(tx, req, surat.id);
     if (!PENGIRIMAN_PRINTER.includes(surat.jenis_tugas) && surat.jenis_tugas !== "kirim_toner") reject("Jenis ST ini tidak memiliki serah terima.");
-    if (surat.status !== "ready_to_print") reject("ST belum siap untuk serah terima.");
+    if (surat.status !== "progress") reject("ST belum berada pada tahap pekerjaan.");
     if (surat.konfirmasi_serah_pada) reject("Serah terima sudah dikonfirmasi.");
     if (!surat.konfirmasi_keluar_pada && !(surat.jenis_tugas === "kirim_kontrak" && surat.tiket?.tiket_asal_id)) reject("Warehouse harus mengonfirmasi unit keluar dahulu.");
     if (surat.jenis_tugas === "kirim_toner" && !surat.konfirmasi_keluar_pada) reject("Warehouse harus mengonfirmasi toner keluar dahulu.");
@@ -420,7 +448,7 @@ router.put("/:id/printer/:lineId/hasil", izin("surat_tugas", "workflow", "teknis
     const surat = await loadNew(tx, req.params.id);
     if (!surat) reject("ST tidak ditemukan.", 404);
     await requireAssigned(tx, req, surat.id);
-    if (!["progress", "ready_to_print", "technician_completed"].includes(surat.status)) reject("Hasil hanya bisa diisi saat pekerjaan berjalan.");
+    if (!["progress", "technician_completed"].includes(surat.status)) reject("Hasil hanya bisa diisi saat pekerjaan berjalan.");
     const line = surat.surat_tugas_printer.find((row) => row.id === req.params.lineId);
     if (!line) reject("Unit tidak ada pada ST.", 404);
     if (["qc", "repair"].includes(surat.jenis_tugas) && !body.kondisi_hasil) reject("Pilih kondisi hasil QC.", 422);
@@ -440,7 +468,7 @@ router.post("/:id/selesai", izin("surat_tugas", "workflow", "teknisi", "warehous
     else await requireAssigned(tx, req, surat.id);
     if (isInbound(surat.jenis_tugas)) {
       if (surat.status !== "warehouse_validated") reject("Warehouse harus menerima semua unit terlebih dulu.");
-    } else if (!["progress", "ready_to_print"].includes(surat.status)) reject("ST belum berada di tahap pekerjaan.");
+    } else if (surat.status !== "progress") reject("ST belum berada di tahap pekerjaan.");
     if (PENGIRIMAN_PRINTER.includes(surat.jenis_tugas) || surat.jenis_tugas === "kirim_toner") {
       if (!surat.konfirmasi_serah_pada) reject("Serah terima belum dikonfirmasi.");
     }

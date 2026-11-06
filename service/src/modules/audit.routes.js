@@ -29,7 +29,6 @@ const eventWorkflow = [
   { kode: "B03", dokumen: "surat_tugas", aksi: "start", nama: "Surat Tugas Dimulai" },
   { kode: "B04", dokumen: "surat_tugas", aksi: "tambah_item", nama: "Item Surat Tugas Ditambahkan" },
   { kode: "B05", dokumen: "surat_tugas", aksi: "hapus_item", nama: "Item Surat Tugas Dihapus" },
-  { kode: "B06", dokumen: "surat_tugas", aksi: "ready_to_print", nama: "Surat Tugas Siap Print" },
   { kode: "B07", dokumen: "surat_tugas", aksi: "selesai_teknisi", nama: "Pekerjaan Teknisi Selesai" },
   { kode: "B08", dokumen: "surat_tugas", aksi: "validasi_warehouse", nama: "Validasi Warehouse" },
   { kode: "B09", dokumen: "surat_tugas", aksi: "resolve", nama: "Validasi Kepala Teknisi" },

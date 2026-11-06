@@ -68,3 +68,23 @@
 - Reason: Memenuhi kebutuhan penugasan tanpa migrasi data atau memutus kontrak klien lama.
 - Alternatives Considered: Menambah kolom dan field `owner_id` baru melalui migrasi; mengganti nama `sales_id` secara breaking.
 - Consequences: Nama internal `sales_id` bersifat historis dan perlu dijelaskan di kontrak. Penugasan Owner tidak otomatis memberi akses tiket kepada user yang ditunjuk.
+
+## DEC-008: Maintenance mandiri mengacu pada printer di gudang
+
+- Date: 2026-11-06
+- Status: Accepted
+- Context: Surat Tugas Maintenance mandiri men-service printer yang berada di gudang; Account dan Customer tidak relevan, sedangkan validasi service sebelumnya menganggap semua Maintenance berada di customer.
+- Decision: Untuk Maintenance tanpa Tiket, wajib pilih Gudang dan unit yang benar-benar berada di Gudang tersebut. Account/Customer harus kosong. Maintenance dari Tiket mempertahankan relasi dan validasi customer yang sudah berlaku.
+- Reason: Relasi ST mencerminkan lokasi fisik unit tanpa menciptakan Account/Customer fiktif.
+- Alternatives Considered: Mewajibkan Account/Customer fiktif atau mengubah semua Maintenance menjadi alur gudang.
+- Consequences: Validasi pembuatan dan edit ST serta dokumentasi kontrak membedakan Maintenance mandiri dari Maintenance bertiket; tidak memerlukan migrasi karena relasi Account/Customer sudah nullable.
+
+## DEC-009: Siap Cetak dihapus dari workflow aktif
+
+- Date: 2026-11-06
+- Status: Accepted
+- Context: Aksi `Siap Cetak` hanya menjadi tahap perantara dan menambah transisi yang tidak diperlukan pada alur Surat Tugas.
+- Decision: Hapus endpoint dan seluruh kontrol UI yang membuat atau menampilkan transisi `ready_to_print`. Setelah `progress`, Surat Tugas memakai aksi keluar/serah/selesai sesuai jenis dan validasi operasionalnya.
+- Reason: Menyederhanakan workflow tanpa mengubah alur validasi barang, konfirmasi gudang, atau penyelesaian teknisi.
+- Alternatives Considered: Mempertahankan aksi sebagai tahap opsional atau menghapus enum database sekaligus.
+- Consequences: Data lama dengan status `ready_to_print` tetap dapat dibaca karena enum dipertahankan, tetapi tidak ada aksi baru yang menghasilkan status tersebut.

@@ -386,24 +386,28 @@ onMounted(async () => {
     <UPageHeader
       title="Tiket"
       description="Kelola permintaan kerja dan kaitannya dengan Surat Tugas."
-    /><UAlert
+    />
+    <UAlert
       v-if="errorMessage"
       color="error"
       variant="subtle"
       :title="errorMessage"
-    /><UAlert
+    />
+    <UAlert
       v-if="successMessage"
       color="success"
       variant="subtle"
       :title="successMessage"
     />
     <UCard
-      ><div class="flex flex-wrap gap-3">
+      >
+      <div class="flex flex-wrap gap-3">
         <UInput
           v-model="search"
           placeholder="Cari nomor atau deskripsi"
           class="w-full lg:max-w-md"
-        /><USelect
+        />
+        <USelect
           v-model="category"
           :items="
             Object.entries(categories).map(([value, label]) => ({
@@ -412,20 +416,24 @@ onMounted(async () => {
             }))
           "
           placeholder="Semua kategori"
-        /><USelect
+        />
+        <USelect
           v-model="status"
           :items="statuses.map((value) => ({ label: value, value }))"
           placeholder="Semua status"
-        /><UButton
+        />
+        <UButton
           v-if="canCreate"
           class="ms-auto"
           icon="i-lucide-plus"
           label="Buat Tiket"
           @click="openCreate"
-        /></div
-    ></UCard>
+        />
+      </div>
+    </UCard>
     <UCard
-      ><UTable
+      >
+      <UTable
         :data="rows"
         :columns="[
           { accessorKey: 'nomor_tiket', header: 'No. Tiket' },
@@ -435,44 +443,81 @@ onMounted(async () => {
           { id: 'actions', header: 'Aksi' },
         ]"
         :loading="loading"
-        ><template #kategori-cell="{ row }">{{
+        >
+        <template #kategori-cell="{ row }">{{
           categories[row.original.kategori] || row.original.kategori
-        }}</template
-        ><template #master_customer-cell="{ row }">{{
+        }}</template>
+        <template #master_customer-cell="{ row }">{{
           row.original.master_customer?.nama_customer || "—"
-        }}</template
-        ><template #actions-cell="{ row }"
-          ><UButton
+        }}</template>
+        <template
+          #actions-cell="{ row }"
+        >
+          <UButton
             size="xs"
             variant="ghost"
             icon="i-lucide-pencil"
             aria-label="Edit Tiket"
-            @click="openDetail(row.original)" /></template
-        ><template #empty
-          ><div class="py-10 text-center text-sm text-dimmed">
+            @click="openDetail(row.original)"
+          />
+        </template>
+        <template
+          #empty
+        >
+          <div class="py-10 text-center text-sm text-dimmed">
             {{ loading ? "Memuat data..." : "Belum ada tiket." }}
-          </div></template
-        ></UTable
-      ><UPagination
+          </div>
+        </template>
+      </UTable>
+      <UPagination
         v-model:page="page"
         :page-count="pageSize"
         :total="total"
         class="mt-4 justify-end"
-    /></UCard>
+      />
+    </UCard>
     <UModal
       v-model:open="createOpen"
       title="Buat Tiket"
       :ui="{ content: 'sm:max-w-3xl h-[80vh] max-h-[800px]', body: 'overflow-y-auto' }"
-      ><template #body
-        ><div class="flex flex-col gap-4 sm:flex-row">
-          <nav class="flex shrink-0 gap-2 sm:w-36 sm:flex-col" aria-label="Bagian Tiket">
-            <UButton :variant="createTab === 'detil' ? 'soft' : 'ghost'" color="neutral" class="justify-start" @click="createTab = 'detil'">Detil</UButton>
-            <UButton :variant="createTab === 'surat_tugas' ? 'soft' : 'ghost'" color="neutral" class="justify-start" @click="createTab = 'surat_tugas'">Surat Tugas</UButton>
+    >
+      <template
+        #body
+      >
+        <div class="flex flex-col gap-4 sm:flex-row">
+          <nav
+            class="flex shrink-0 gap-2 sm:w-36 sm:flex-col"
+            aria-label="Bagian Tiket"
+          >
+            <UButton
+              :variant="createTab === 'detil' ? 'soft' : 'ghost'"
+              color="neutral"
+              class="justify-start"
+              @click="createTab = 'detil'"
+            >
+              Detil
+            </UButton>
+            <UButton
+              :variant="createTab === 'surat_tugas' ? 'soft' : 'ghost'"
+              color="neutral"
+              class="justify-start"
+              @click="createTab = 'surat_tugas'"
+            >
+              Surat Tugas
+            </UButton>
           </nav>
           <div class="min-w-0 flex-1">
-          <UForm v-if="createTab === 'detil'" :state="form" class="space-y-4" @submit="save"
-          ><UFormField label="Kategori" required
-            ><USelect
+          <UForm
+            v-if="createTab === 'detil'"
+            :state="form"
+            class="space-y-4"
+            @submit="save"
+          >
+              <UFormField
+                label="Kategori"
+                required
+              >
+                <USelect
               v-model="form.kategori"
               :items="
                 allowedCategories.map((value) => ({
@@ -481,12 +526,17 @@ onMounted(async () => {
                 }))
               "
               class="w-full"
-          /></UFormField>
+          />
+              </UFormField>
           <p class="text-sm text-dimmed">
             Jenis pekerjaan dipilih saat membuat Surat Tugas.
           </p>
-          <UFormField v-if="customerRequired" label="Customer / Site" required
-            ><USelectMenu
+          <UFormField
+            v-if="customerRequired"
+            label="Customer / Site"
+            required
+          >
+                <USelectMenu
               v-model="form.customer_id"
               v-model:search-term="searches.customer"
               :items="
@@ -500,9 +550,12 @@ onMounted(async () => {
               ignore-filter
               :loading="loadingOptions.customer"
               class="w-full"
-              @update:model-value="selectCustomer" /></UFormField
-          ><UFormField label="Unit Printer"
-            ><USelectMenu
+              @update:model-value="selectCustomer" />
+          </UFormField>
+              <UFormField
+                label="Unit Printer"
+              >
+                <USelectMenu
               v-model="form.printer_ids"
               v-model:search-term="searches.printer"
               :items="
@@ -516,80 +569,244 @@ onMounted(async () => {
               searchable
               ignore-filter
               :loading="loadingOptions.printer"
-              class="w-full" /></UFormField
-          ><UFormField label="Tanggal Tiket" required
-            ><UInput
-              v-model="form.tanggal_transaksi"
-              type="datetime-local"
-              class="w-full" /></UFormField
-          ><UFormField
-            label="Owner"
-            :required="['delivery', 'komplain'].includes(form.kategori)"
-            ><USelectMenu
-              v-model="form.sales_id"
-              v-model:search-term="searches.sales"
-              :items="ownerItems"
-              value-key="value"
-              searchable
-              ignore-filter
-              :loading="loadingOptions.sales"
-              :search-input="{ placeholder: 'Cari nama atau ID user' }"
               class="w-full" />
-            <p v-if="ownerError" class="text-sm text-error">{{ ownerError }}</p>
-            <p v-else-if="!loadingOptions.sales && !ownerItems.length" class="text-sm text-dimmed">User aktif tidak ditemukan.</p>
-          </UFormField
-          ><UFormField label="Deskripsi"
-            ><UTextarea v-model="form.deskripsi" class="w-full"
-          /></UFormField>
+              </UFormField>
+              <UFormField
+                label="Tanggal Tiket"
+                required
+              >
+                <UInput
+                  v-model="form.tanggal_transaksi"
+                  type="datetime-local"
+                  class="w-full"
+                />
+              </UFormField>
+              <UFormField
+                label="Owner"
+                :required="['delivery', 'komplain'].includes(form.kategori)"
+              >
+                <USelectMenu
+                  v-model="form.sales_id"
+                  v-model:search-term="searches.sales"
+                  :items="ownerItems"
+                  value-key="value"
+                  searchable
+                  ignore-filter
+                  :loading="loadingOptions.sales"
+                  :search-input="{ placeholder: 'Cari nama atau ID user' }"
+                  class="w-full"
+                />
+            <p
+              v-if="ownerError"
+              class="text-sm text-error"
+            >
+              {{ ownerError }}
+            </p>
+            <p
+              v-else-if="!loadingOptions.sales && !ownerItems.length"
+              class="text-sm text-dimmed"
+            >
+              User aktif tidak ditemukan.
+            </p>
+          </UFormField>
+              <UFormField
+                label="Deskripsi"
+              >
+                <UTextarea
+                  v-model="form.deskripsi"
+                  class="w-full"
+                />
+              </UFormField>
           <div class="flex justify-end">
-            <UButton type="submit" :loading="saving">Simpan Tiket</UButton>
-          </div></UForm>
-          <div v-else class="space-y-4">
+            <UButton
+              type="submit"
+              :loading="saving"
+            >
+              Simpan Tiket
+            </UButton>
+          </div>
+          </UForm>
+          <div
+            v-else
+            class="space-y-4"
+          >
             <p class="text-sm text-dimmed">Isi data pada tab Detil terlebih dahulu. Tiket akan disimpan sebelum form Surat Tugas dibuka.</p>
             <div class="flex justify-end">
-              <UButton color="primary" variant="outline" :loading="saving" @click="saveAndCreateSt">Buat Surat Tugas</UButton>
+              <UButton
+                color="primary"
+                variant="outline"
+                :loading="saving"
+                @click="saveAndCreateSt"
+              >
+                Buat Surat Tugas
+              </UButton>
             </div>
           </div>
           </div>
-        </div></template
-      ></UModal
-    >
+        </div>
+      </template>
+    </UModal>
     <UModal
       v-model:open="detailOpen"
       :title="selected?.nomor_tiket ? `Edit Tiket ${selected.nomor_tiket}` : 'Edit Tiket'"
       :ui="{ content: 'sm:max-w-3xl h-[80vh] max-h-[800px]', body: 'overflow-y-auto' }"
-      ><template #body
-        ><div v-if="selected" class="flex flex-col gap-4 sm:flex-row">
-          <nav class="flex shrink-0 gap-2 sm:w-36 sm:flex-col" aria-label="Bagian Tiket">
-            <UButton :variant="detailTab === 'detil' ? 'soft' : 'ghost'" color="neutral" class="justify-start" @click="detailTab = 'detil'">Detil</UButton>
-            <UButton :variant="detailTab === 'surat_tugas' ? 'soft' : 'ghost'" color="neutral" class="justify-start" @click="detailTab = 'surat_tugas'">Surat Tugas ({{ selected.surat_tugas?.length || 0 }})</UButton>
+    >
+      <template
+        #body
+      >
+        <div
+          v-if="selected"
+          class="flex flex-col gap-4 sm:flex-row"
+        >
+          <nav
+            class="flex shrink-0 gap-2 sm:w-36 sm:flex-col"
+            aria-label="Bagian Tiket"
+          >
+            <UButton
+              :variant="detailTab === 'detil' ? 'soft' : 'ghost'"
+              color="neutral"
+              class="justify-start"
+              @click="detailTab = 'detil'"
+            >
+              Detil
+            </UButton>
+            <UButton
+              :variant="detailTab === 'surat_tugas' ? 'soft' : 'ghost'"
+              color="neutral"
+              class="justify-start"
+              @click="detailTab = 'surat_tugas'"
+            >
+              Surat Tugas ({{ selected.surat_tugas?.length || 0 }})
+            </UButton>
           </nav>
           <div class="min-w-0 flex-1 space-y-4">
           <div class="flex flex-wrap gap-2">
-            <UBadge color="neutral" variant="subtle">{{
+            <UBadge
+              color="neutral"
+              variant="subtle"
+            >{{
               selected.status
-            }}</UBadge
-            ><UBadge v-if="readyToClose" color="success" variant="subtle"
-              >Siap ditinjau untuk penutupan</UBadge
-            >
+            }}</UBadge>
+              <UBadge
+                v-if="readyToClose"
+                color="success"
+                variant="subtle"
+              >
+                Siap ditinjau untuk penutupan
+              </UBadge>
           </div>
-          <div v-if="detailTab === 'detil'" class="space-y-4">
-            <UFormField label="Kategori"><UInput :model-value="categories[selected.kategori] || selected.kategori" readonly class="w-full" /></UFormField>
-            <UFormField label="Customer / Site"><UInput :model-value="selected.master_customer?.nama_customer || '—'" readonly class="w-full" /></UFormField>
-            <UFormField label="Unit Printer"><UInput :model-value="selected.tiket_printer?.map((line: Row) => line.mp_no).join(', ') || '—'" readonly class="w-full" /></UFormField>
-            <UFormField label="Tanggal Tiket"><UInput v-model="form.tanggal_transaksi" type="datetime-local" :readonly="!canEditSelected" class="w-full" /></UFormField>
-            <UFormField label="Owner"><USelectMenu v-model="form.sales_id" v-model:search-term="searches.sales" :items="ownerItems" value-key="value" searchable ignore-filter :loading="loadingOptions.sales" :disabled="!canEditSelected" :search-input="{ placeholder: 'Cari nama atau ID user' }" class="w-full" /><p v-if="ownerError" class="text-sm text-error">{{ ownerError }}</p><p v-else-if="!loadingOptions.sales && !ownerItems.length" class="text-sm text-dimmed">User aktif tidak ditemukan.</p></UFormField>
-            <UFormField label="Deskripsi"><UTextarea v-model="form.deskripsi" :readonly="!canEditSelected" class="w-full" /></UFormField>
+          <div
+            v-if="detailTab === 'detil'"
+            class="space-y-4"
+          >
+            <UFormField label="Kategori">
+                <UInput
+                  :model-value="categories[selected.kategori] || selected.kategori"
+                  readonly
+                  class="w-full"
+                />
+            </UFormField>
+            <UFormField label="Customer / Site">
+                <UInput
+                  :model-value="selected.master_customer?.nama_customer || '—'"
+                  readonly
+                  class="w-full"
+                />
+            </UFormField>
+            <UFormField label="Unit Printer">
+                <UInput
+                  :model-value="selected.tiket_printer?.map((line: Row) => line.mp_no).join(', ') || '—'"
+                  readonly
+                  class="w-full"
+                />
+            </UFormField>
+            <UFormField label="Tanggal Tiket">
+                <UInput
+                  v-model="form.tanggal_transaksi"
+                  type="datetime-local"
+                  :readonly="!canEditSelected"
+                  class="w-full"
+                />
+            </UFormField>
+            <UFormField label="Owner">
+                <USelectMenu
+                  v-model="form.sales_id"
+                  v-model:search-term="searches.sales"
+                  :items="ownerItems"
+                  value-key="value"
+                  searchable
+                  ignore-filter
+                  :loading="loadingOptions.sales"
+                  :disabled="!canEditSelected"
+                  :search-input="{ placeholder: 'Cari nama atau ID user' }"
+                  class="w-full"
+                />
+                <p
+                  v-if="ownerError"
+                  class="text-sm text-error"
+                >
+                  {{ ownerError }}
+                </p>
+                <p
+                  v-else-if="!loadingOptions.sales && !ownerItems.length"
+                  class="text-sm text-dimmed"
+                >
+                  User aktif tidak ditemukan.
+                </p>
+            </UFormField>
+            <UFormField label="Deskripsi">
+                <UTextarea
+                  v-model="form.deskripsi"
+                  :readonly="!canEditSelected"
+                  class="w-full"
+                />
+            </UFormField>
             <div class="flex justify-end gap-2">
-              <UButton v-if="canEditSelected" :loading="saving" @click="save">Simpan Perubahan</UButton>
-              <UButton v-if="canCloseSelected" color="warning" @click="action('resolve')">Tutup Tiket</UButton>
+              <UButton
+                v-if="canEditSelected"
+                :loading="saving"
+                @click="save"
+              >
+                Simpan Perubahan
+              </UButton>
+              <UButton
+                v-if="canCloseSelected"
+                color="warning"
+                @click="action('resolve')"
+              >
+                Tutup Tiket
+              </UButton>
             </div>
           </div>
-          <div v-else class="space-y-4">
-            <UAlert v-if="stError" color="error" variant="subtle" :title="stError" />
-            <UTable :data="selected.surat_tugas || []" :columns="[{ accessorKey: 'nomor_surat_tugas', header: 'Nomor ST' }, { accessorKey: 'jenis_tugas', header: 'Jenis Tugas' }, { accessorKey: 'status', header: 'Status' }]">
-              <template #nomor_surat_tugas-cell="{ row }"><UButton type="button" color="primary" variant="link" class="p-0" :aria-label="`Buka Surat Tugas ${row.original.nomor_surat_tugas}`" @click="openStFromTicket(row.original)">{{ row.original.nomor_surat_tugas }}</UButton></template>
-              <template #empty><div class="py-8 text-center text-sm text-dimmed">Belum ada Surat Tugas.</div></template>
+          <div
+            v-else
+            class="space-y-4"
+          >
+            <UAlert
+              v-if="stError"
+              color="error"
+              variant="subtle"
+              :title="stError"
+            />
+            <UTable
+              :data="selected.surat_tugas || []"
+              :columns="[{ accessorKey: 'nomor_surat_tugas', header: 'Nomor ST' }, { accessorKey: 'jenis_tugas', header: 'Jenis Tugas' }, { accessorKey: 'status', header: 'Status' }]"
+            >
+              <template #nomor_surat_tugas-cell="{ row }">
+                  <UButton
+                    type="button"
+                    color="primary"
+                    variant="link"
+                    class="p-0"
+                    :aria-label="`Buka Surat Tugas ${row.original.nomor_surat_tugas}`"
+                    @click="openStFromTicket(row.original)"
+                  >
+                    {{ row.original.nomor_surat_tugas }}
+                  </UButton>
+              </template>
+              <template #empty>
+                  <div class="py-8 text-center text-sm text-dimmed">Belum ada Surat Tugas.</div>
+              </template>
             </UTable>
             <div class="flex justify-end">
             <UButton
@@ -597,14 +814,15 @@ onMounted(async () => {
               color="primary"
               variant="outline"
               @click="createStFromDetail"
-              >Buat Surat Tugas</UButton
             >
+              Buat Surat Tugas
+            </UButton>
             </div>
           </div>
           </div>
-        </div></template
-      ></UModal
-    >
+        </div>
+      </template>
+    </UModal>
     <SuratTugasPage
       v-if="stModalOpen"
       embedded

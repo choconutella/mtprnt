@@ -14,7 +14,7 @@ const { jadwalBerikutnya, tanggalSaja } = require("./printer-maintenance.service
 
 const router = express.Router();
 
-const STATUS_SURAT_TUGAS = ["pending", "progress", "ready_to_print", "technician_completed", "warehouse_validated", "solved", "cancelled"];
+const STATUS_SURAT_TUGAS = ["pending", "progress", "technician_completed", "warehouse_validated", "solved", "cancelled"];
 const LEGACY_STATUS_SURAT_TUGAS = ["draft", "ditugaskan", "diproses", "diajukan", "disetujui", "ditutup", "dibatalkan"];
 
 const suratTugasSchema = z.object({
@@ -384,7 +384,14 @@ router.put("/:id", otorisasi("kepala-teknisi", "teknisi"), asyncHandler(async (r
     }
     const accountId = body.account_id || sebelum.account_id;
     const customerId = body.customer_id || sebelum.customer_id;
-    await pastikanCustomerAccount(tx, accountId, customerId, accountId !== sebelum.account_id || customerId !== sebelum.customer_id);
+    const maintenanceGudang = sebelum.jenis_tugas === "maintenance" && !sebelum.tiket_id && !!sebelum.gudang_id;
+    if (maintenanceGudang) {
+      if (body.account_id || body.customer_id || body.printer_id) {
+        throw Object.assign(new Error("Maintenance gudang tidak menggunakan Account, Customer, atau printer customer."), { statusCode: 422 });
+      }
+    } else {
+      await pastikanCustomerAccount(tx, accountId, customerId, accountId !== sebelum.account_id || customerId !== sebelum.customer_id);
+    }
     const pengaduanId = body.pengaduan_id === undefined ? sebelum.pengaduan_id : body.pengaduan_id;
     if (pengaduanId) {
       const pengaduan = await tx.pengaduan.findUnique({ where: { id: pengaduanId } });
@@ -430,7 +437,7 @@ router.put("/:id", otorisasi("kepala-teknisi", "teknisi"), asyncHandler(async (r
     if (sesudah.status === "cancelled" && sebelum.status !== "cancelled" && sesudah.tanggal_maintenance_otomatis) {
       await majukanJadwalPrinter(tx, req, sesudah);
     }
-    if (sesudah.status === "cancelled" && ["progress", "ready_to_print", "technician_completed", "warehouse_validated"].includes(sebelum.status)) {
+    if (sesudah.status === "cancelled" && ["progress", "technician_completed", "warehouse_validated"].includes(sebelum.status)) {
       await catatMaintenancePrinter(tx, req, sesudah, "maintenance_dibatalkan", "Sedang Maintenance", "Di Customer");
     }
 
@@ -509,7 +516,7 @@ router.post("/:id/pemakaian", otorisasi("teknisi"), asyncHandler(async (req, res
     const surat = await tx.surat_tugas.findUnique({ where: { id: req.params.id } });
     if (!surat) return null;
     await assertTeknisiAssigned(tx, req, surat.id);
-    assertStatus(surat.status, ["progress", "ready_to_print"], "Item hanya bisa ditambahkan saat surat tugas progress atau ready_to_print.");
+    assertStatus(surat.status, ["progress"], "Item hanya bisa ditambahkan saat surat tugas progress.");
 
     if (body.jenis_barang === "printer") {
       if (!pekerjaanMemasangPrinter(surat.jenis_pekerjaan)) {
@@ -569,7 +576,7 @@ router.delete("/:id/pemakaian/:pemakaianId", otorisasi("teknisi"), asyncHandler(
     const surat = await tx.surat_tugas.findUnique({ where: { id: req.params.id } });
     if (!surat) return null;
     await assertTeknisiAssigned(tx, req, surat.id);
-    assertStatus(surat.status, ["progress", "ready_to_print"], "Item hanya bisa dihapus saat surat tugas progress atau ready_to_print.");
+    assertStatus(surat.status, ["progress"], "Item hanya bisa dihapus saat surat tugas progress.");
 
     const pemakaian = await tx.pemakaian_barang_surat_tugas.findFirst({
       where: {
@@ -616,34 +623,13 @@ router.delete("/:id/pemakaian/:pemakaianId", otorisasi("teknisi"), asyncHandler(
   return sukses(res, "Item surat tugas berhasil dihapus.", item);
 }));
 
-router.post("/:id/ready-to-print", otorisasi("teknisi"), asyncHandler(async (req, res) => {
-  hanyaRole(req, ["teknisi"]);
-  const item = await prisma.$transaction(async (tx) => {
-    const sebelum = await tx.surat_tugas.findUnique({ where: { id: req.params.id } });
-    if (!sebelum) return null;
-    await assertTeknisiAssigned(tx, req, sebelum.id);
-    assertStatus(sebelum.status, ["progress"], "Surat tugas harus progress sebelum Ready to Print.");
-
-    const sesudah = await tx.surat_tugas.update({
-      where: { id: req.params.id },
-      data: { status: "ready_to_print" }
-    });
-
-    await catatStatusSurat(tx, req, sebelum, sesudah, "ready_to_print", "Surat tugas siap dicetak.");
-
-    return sesudah;
-  });
-  if (!item) return gagal(res, "Surat tugas tidak ditemukan.", 404);
-  return sukses(res, "Surat tugas siap dicetak.", item);
-}));
-
 router.post("/:id/selesai-teknisi", otorisasi("teknisi"), asyncHandler(async (req, res) => {
   hanyaRole(req, ["teknisi"]);
   const item = await prisma.$transaction(async (tx) => {
     const sebelum = await tx.surat_tugas.findUnique({ where: { id: req.params.id } });
     if (!sebelum) return null;
     await assertTeknisiAssigned(tx, req, sebelum.id);
-    assertStatus(sebelum.status, ["ready_to_print"], "Surat tugas harus ready_to_print sebelum diselesaikan teknisi.");
+    assertStatus(sebelum.status, ["progress"], "Surat tugas harus progress sebelum diselesaikan teknisi.");
 
     const sesudah = await tx.surat_tugas.update({
       where: { id: req.params.id },
@@ -804,11 +790,6 @@ router.post("/:id/resolve", otorisasi("kepala-teknisi"), asyncHandler(async (req
 
   if (!hasil) return gagal(res, "Surat tugas tidak ditemukan.", 404);
   return sukses(res, "Surat tugas berhasil diselesaikan.", hasil);
-}));
-
-router.post("/:id/ajukan", otorisasi("teknisi", "kepala-teknisi"), asyncHandler(async (req, res) => {
-  req.url = `/${req.params.id}/ready-to-print`;
-  return gagal(res, "Endpoint ajukan sudah diganti menjadi /ready-to-print.", 410);
 }));
 
 router.post("/:id/setujui", otorisasi("warehouse"), asyncHandler(async (req, res) => {

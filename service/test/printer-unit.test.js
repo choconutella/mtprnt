@@ -153,7 +153,6 @@ test("printer unit, stock, reservation, warehouse, and installation", async () =
     assert.equal((await request(head, `/surat-tugas/${owner.id}`, "PUT", { jenis_pekerjaan: "maintenance" })).status, 409);
     assert.equal((await request(admin, `/surat-tugas/${owner.id}`, "PUT", { status: "solved" })).status, 409);
 
-    await good(technician, `/surat-tugas/${owner.id}/ready-to-print`, "POST", {});
     await good(technician, `/surat-tugas/${owner.id}/selesai-teknisi`, "POST", { hasil: "Installed" });
     await good(warehouse, `/surat-tugas/${owner.id}/validasi-warehouse`, "POST", {});
     assert.equal((await good(admin, `/printer/${unit.id}`)).status, "issued");
@@ -182,7 +181,6 @@ test("printer unit, stock, reservation, warehouse, and installation", async () =
     const maintenance = await makeOrder("maintenance");
     await good(head, `/surat-tugas/${maintenance.id}`, "PUT", { printer_id: unit.id });
     assert.equal((await good(head, `/surat-tugas/${maintenance.id}`)).printer_id, unit.id);
-    await good(technician, `/surat-tugas/${maintenance.id}/ready-to-print`, "POST", {});
     await good(technician, `/surat-tugas/${maintenance.id}/selesai-teknisi`, "POST", {});
     await good(head, `/surat-tugas/${maintenance.id}/resolve`, "POST", {});
     assert.equal((await good(admin, `/printer/${unit.id}`)).status, "installed");
@@ -216,7 +214,6 @@ test("printer unit, stock, reservation, warehouse, and installation", async () =
     assert.ok(await prisma.riwayat_audit.findFirst({ where: { nomor_dokumen: scheduled.nomor_surat_tugas, aksi: "start" } }));
     const scheduledLine = await prisma.surat_tugas_printer.findFirst({ where: { surat_tugas_id: scheduled.id } });
     await good(technician, `/surat-tugas/${scheduled.id}/printer/${scheduledLine.id}/hasil`, "PUT", { hasil: "Maintenance selesai" });
-    await good(technician, `/surat-tugas/${scheduled.id}/ready-to-print`, "POST", {});
     await good(technician, `/surat-tugas/${scheduled.id}/selesai`, "POST", {});
     await good(head, `/surat-tugas/${scheduled.id}/resolve`, "POST", {});
     const afterMaintenance = await good(admin, `/printer/${unit.id}`);
@@ -244,7 +241,6 @@ test("printer unit, stock, reservation, warehouse, and installation", async () =
     created.units.push(returning.id);
     const returnOrder = await makeOrder("delivery");
     await good(technician, `/surat-tugas/${returnOrder.id}/pemakaian`, "POST", { gudang_id: created.warehouses[0], jenis_barang: "printer", printer_id: returning.id, jumlah_pakai: 1 }, 201);
-    await good(technician, `/surat-tugas/${returnOrder.id}/ready-to-print`, "POST", {});
     await good(technician, `/surat-tugas/${returnOrder.id}/selesai-teknisi`, "POST", {});
     await good(warehouse, `/surat-tugas/${returnOrder.id}/validasi-warehouse`, "POST", {});
     assert.equal((await request(admin, `/surat-tugas/${returnOrder.id}`, "PUT", { status: "cancelled" })).status, 409);
@@ -321,7 +317,6 @@ test("printer unit, stock, reservation, warehouse, and installation", async () =
 
     const usageOrder = await makeOrder("maintenance");
     await good(technician, `/surat-tugas/${usageOrder.id}/pemakaian`, "POST", { gudang_id: created.warehouses[0], jenis_barang: "toner", toner_id: toner.id, jumlah_pakai: 2 }, 201);
-    await good(technician, `/surat-tugas/${usageOrder.id}/ready-to-print`, "POST", {});
     await good(technician, `/surat-tugas/${usageOrder.id}/selesai-teknisi`, "POST", {});
     await good(warehouse, `/surat-tugas/${usageOrder.id}/validasi-warehouse`, "POST", {});
     const usageAudit = (await good(admin, `/audit-barang/toner/${toner.id}`)).items[0];

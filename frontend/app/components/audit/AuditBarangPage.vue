@@ -201,17 +201,31 @@ watch(totalPages, (value) => {
     <UCard>
       <div class="overflow-x-auto pb-1">
         <div class="flex min-w-[1100px] items-end gap-3">
-          <UFormField label="Tanggal Mulai" class="w-40 shrink-0"
-            ><UInput v-model="filter.tanggal_mulai" type="date" class="w-full"
-          /></UFormField>
-          <UFormField label="Tanggal Selesai" class="w-40 shrink-0"
-            ><UInput
+          <UFormField
+            label="Tanggal Mulai"
+            class="w-40 shrink-0"
+          >
+            <UInput
+              v-model="filter.tanggal_mulai"
+              type="date"
+              class="w-full"
+            />
+          </UFormField>
+          <UFormField
+            label="Tanggal Selesai"
+            class="w-40 shrink-0"
+          >
+            <UInput
               v-model="filter.tanggal_selesai"
               type="date"
               class="w-full"
-          /></UFormField>
-          <UFormField label="Jenis Barang" class="w-40 shrink-0"
-            ><USelect
+            />
+          </UFormField>
+          <UFormField
+            label="Jenis Barang"
+            class="w-40 shrink-0"
+          >
+            <USelect
               v-model="filter.jenis_barang"
               :items="[
                 { label: 'Semua barang', value: 'all' },
@@ -220,15 +234,20 @@ watch(totalPages, (value) => {
                 { label: 'Sparepart', value: 'suku_cadang' },
               ]"
               class="w-full"
-          /></UFormField>
-          <UFormField label="Search" class="min-w-64 flex-1"
-            ><UInput
+          />
+          </UFormField>
+          <UFormField
+            label="Search"
+            class="min-w-64 flex-1"
+          >
+            <UInput
               v-model="filter.search"
               icon="i-lucide-search"
               placeholder="MP No atau kode barang"
               class="w-full"
               @keyup.enter="loadAuditBarang"
-          /></UFormField>
+            />
+          </UFormField>
           <UButton
             color="neutral"
             variant="outline"
@@ -266,40 +285,55 @@ watch(totalPages, (value) => {
           class="w-32"
         />
       </div>
-      <UTable :data="rows" :columns="columns" :loading="loading">
-        <template #event_nama-cell="{ row }"
-          ><UBadge color="neutral" variant="subtle">{{
-            row.original.event_nama || row.original.aksi || "-"
-          }}</UBadge></template
+      <UTable
+        :data="rows"
+        :columns="columns"
+        :loading="loading"
+      >
+        <template
+          #event_nama-cell="{ row }"
         >
+          <UBadge
+            color="neutral"
+            variant="subtle"
+          >{{
+            row.original.event_nama || row.original.aksi || "-"
+          }}</UBadge>
+        </template>
         <template #tanggal_audit-cell="{ row }">{{
           formatDateTime(row.original.tanggal_audit)
         }}</template>
         <template #nama_pengguna-cell="{ row }">{{
           row.original.nama_pengguna || "Sistem"
         }}</template>
-        <template #kode_barang-cell="{ row }"
-          ><span class="font-medium text-highlighted">{{
+        <template
+          #kode_barang-cell="{ row }"
+        >
+          <span class="font-medium text-highlighted">{{
             row.original.kode_barang || "-"
-          }}</span></template
-        >
-        <template #lokasi-cell="{ row }"
-          >{{ row.original.lokasi_asal || "-" }} →
-          {{ row.original.lokasi_tujuan || "-" }}</template
-        >
+          }}</span>
+        </template>
+        <template
+          #lokasi-cell="{ row }"
+        >{{ row.original.lokasi_asal || "-" }} →
+          {{ row.original.lokasi_tujuan || "-" }}</template>
         <template #perubahan-cell="{ row }">{{
           changeText(row.original)
         }}</template>
         <template #referensi_nomor-cell="{ row }">{{
           row.original.referensi?.nomor || "-"
         }}</template>
-        <template #keterangan-cell="{ row }"
-          ><span class="whitespace-normal">{{
-            row.original.keterangan || "-"
-          }}</span></template
+        <template
+          #keterangan-cell="{ row }"
         >
-        <template #actions-cell="{ row }"
-          ><UButton
+          <span class="whitespace-normal">{{
+            row.original.keterangan || "-"
+          }}</span>
+        </template>
+        <template
+          #actions-cell="{ row }"
+        >
+          <UButton
             size="xs"
             color="neutral"
             variant="ghost"
@@ -309,9 +343,12 @@ watch(totalPages, (value) => {
               selected = row.original;
               detailOpen = true;
             "
-        /></template>
-        <template #empty
-          ><div class="py-10 text-center text-sm text-dimmed">
+        />
+        </template>
+        <template
+          #empty
+        >
+          <div class="py-10 text-center text-sm text-dimmed">
             {{
               loading
                 ? "Memuat audit barang..."
@@ -319,16 +356,16 @@ watch(totalPages, (value) => {
                   ? "Audit barang tidak ditemukan."
                   : "Pilih filter lalu pilih Tampilkan Audit."
             }}
-          </div></template
-        >
+          </div>
+        </template>
       </UTable>
       <div
         class="mt-4 flex flex-col gap-3 text-sm text-dimmed sm:flex-row sm:items-center sm:justify-between"
       >
         <span>{{ rangeStart }}-{{ rangeEnd }} dari {{ total }} event</span>
         <div class="flex items-center gap-3">
-          <span>Halaman {{ page }} dari {{ totalPages }}</span
-          ><UButton
+          <span>Halaman {{ page }} dari {{ totalPages }}</span>
+          <UButton
             size="sm"
             color="neutral"
             variant="outline"
@@ -336,7 +373,8 @@ watch(totalPages, (value) => {
             aria-label="Halaman sebelumnya"
             :disabled="page <= 1"
             @click="changePage(page - 1)"
-          /><UButton
+          />
+          <UButton
             size="sm"
             color="neutral"
             variant="outline"
@@ -354,12 +392,21 @@ watch(totalPages, (value) => {
       :ui="{ content: 'sm:max-w-2xl' }"
     >
       <template #body>
-        <div v-if="selected" class="space-y-4">
+        <div
+          v-if="selected"
+          class="space-y-4"
+        >
           <div class="flex flex-wrap gap-2">
-            <UBadge color="neutral" variant="subtle">{{
+            <UBadge
+              color="neutral"
+              variant="subtle"
+            >{{
               selected.kode_barang || "-"
-            }}</UBadge
-            ><UBadge color="info" variant="subtle">{{
+            }}</UBadge>
+            <UBadge
+              color="info"
+              variant="subtle"
+            >{{
               selected.nama_pengguna || "Sistem"
             }}</UBadge>
           </div>
@@ -371,32 +418,32 @@ watch(totalPages, (value) => {
             v-if="selected.jumlah != null"
             class="grid grid-cols-[9rem_1fr] gap-3 border-t border-default pt-3 text-sm"
           >
-            <strong>Jumlah</strong><span>{{ Number(selected.jumlah) }}</span>
+            <strong>Jumlah</strong>
+            <span>{{ Number(selected.jumlah) }}</span>
           </div>
           <div
             v-if="selected.saldo_sebelum || selected.saldo_sesudah"
             class="grid grid-cols-[9rem_1fr] gap-3 border-t border-default pt-3 text-sm"
           >
-            <strong>Saldo</strong
-            ><span
+            <strong>Saldo</strong>
+            <span
               >{{ stockText(selected.saldo_sebelum) }} →
-              {{ stockText(selected.saldo_sesudah) }}</span
-            >
+              {{ stockText(selected.saldo_sesudah) }}</span>
           </div>
           <div
             v-for="change in detailChanges(selected)"
             :key="change.label"
             class="grid gap-1 border-t border-default pt-3 text-sm sm:grid-cols-[9rem_1fr]"
           >
-            <strong>{{ change.label }}</strong
-            ><span>{{ change.before }} → {{ change.after }}</span>
+            <strong>{{ change.label }}</strong>
+            <span>{{ change.before }} → {{ change.after }}</span>
           </div>
           <div
             v-if="selected.referensi"
             class="grid grid-cols-[9rem_1fr] gap-3 border-t border-default pt-3 text-sm"
           >
-            <strong>Referensi</strong
-            ><span>{{ selected.referensi.nomor }}</span>
+            <strong>Referensi</strong>
+            <span>{{ selected.referensi.nomor }}</span>
           </div>
         </div>
       </template>

@@ -145,7 +145,10 @@ onMounted(load);
 
 <template>
   <div class="space-y-6">
-    <UPageHeader :title="title" :description="description" />
+    <UPageHeader
+      :title="title"
+      :description="description"
+    />
 
     <UAlert
       v-if="errorMessage"
@@ -193,9 +196,16 @@ onMounted(load);
     </UCard>
 
     <UCard>
-      <UTable :data="paginatedRows" :columns="columns" :loading="loading">
+      <UTable
+        :data="paginatedRows"
+        :columns="columns"
+        :loading="loading"
+      >
         <template #role-cell="{ row }">
-          <UBadge color="info" variant="subtle">
+          <UBadge
+            color="info"
+            variant="subtle"
+          >
             {{
               roleOptions.find((item) => item.value === row.original.role)
                 ?.label || row.original.role
@@ -211,7 +221,10 @@ onMounted(load);
           </UBadge>
         </template>
         <template #actions-cell="{ row }">
-          <div v-if="canWrite" class="flex flex-wrap gap-1">
+          <div
+            v-if="canWrite"
+            class="flex flex-wrap gap-1"
+          >
             <UButton
               size="xs"
               color="neutral"
@@ -229,7 +242,12 @@ onMounted(load);
               @click="deactivate(row.original)"
             />
           </div>
-          <span v-else class="text-sm text-dimmed"> - </span>
+          <span
+            v-else
+            class="text-sm text-dimmed"
+          >
+            -
+          </span>
         </template>
       </UTable>
       <div class="mt-4 flex justify-end">
@@ -246,30 +264,77 @@ onMounted(load);
       :title="editing ? `Edit ${title}` : `Tambah ${title}`"
     >
       <template #body>
-        <UForm :state="form" class="space-y-4" @submit="save">
+        <UForm
+          :state="form"
+          class="space-y-4"
+          @submit="save"
+        >
           <div class="grid gap-4 sm:grid-cols-2">
-            <UFormField label="User ID" name="user_id" required>
-              <UInput v-model="form.user_id" class="w-full" />
+            <UFormField
+              label="User ID"
+              name="user_id"
+              required
+            >
+              <UInput
+                v-model="form.user_id"
+                class="w-full"
+              />
             </UFormField>
-            <UFormField label="Nama" name="name" required>
-              <UInput v-model="form.name" class="w-full" />
+            <UFormField
+              label="Nama"
+              name="name"
+              required
+            >
+              <UInput
+                v-model="form.name"
+                class="w-full"
+              />
             </UFormField>
           </div>
-          <UFormField label="Role" name="role" required>
-            <USelect v-model="form.role" :items="roleOptions" class="w-full" />
+          <UFormField
+            label="Role"
+            name="role"
+            required
+          >
+            <USelect
+              v-model="form.role"
+              :items="roleOptions"
+              class="w-full"
+            />
           </UFormField>
-          <UFormField label="Email" name="email" required>
-            <UInput v-model="form.email" type="email" class="w-full" />
+          <UFormField
+            label="Email"
+            name="email"
+            required
+          >
+            <UInput
+              v-model="form.email"
+              type="email"
+              class="w-full"
+            />
           </UFormField>
           <UFormField
             :label="editing ? 'Password Baru (opsional)' : 'Password'"
             name="password"
             :required="!editing"
           >
-            <UInput v-model="form.password" type="password" class="w-full" />
+            <UInput
+              v-model="form.password"
+              type="password"
+              class="w-full"
+            />
           </UFormField>
-          <UCheckbox v-model="form.active" label="Aktif" />
-          <UButton type="submit" block :loading="saving"> Simpan </UButton>
+          <UCheckbox
+            v-model="form.active"
+            label="Aktif"
+          />
+          <UButton
+            type="submit"
+            block
+            :loading="saving"
+          >
+            Simpan
+          </UButton>
         </UForm>
       </template>
     </UModal>

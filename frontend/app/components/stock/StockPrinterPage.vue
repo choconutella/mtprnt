@@ -300,85 +300,473 @@ onMounted(async () => { await loadLookups(); await loadRows() })
 
 <template>
   <div class="space-y-6">
-    <UPageHeader title="Stok Printer" description="Unit printer di gudang dan di customer." />
+    <UPageHeader
+      title="Stok Printer"
+      description="Unit printer di gudang dan di customer."
+    />
     <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-      <UCard v-for="item in [{ key: 'available', label: 'Tersedia' }, { key: 'reserved', label: 'Direservasi' }, { key: 'issued', label: 'Keluar gudang' }, { key: 'installed', label: 'Di customer' }]" :key="item.key">
+      <UCard
+        v-for="item in [{ key: 'available', label: 'Tersedia' }, { key: 'reserved', label: 'Direservasi' }, { key: 'issued', label: 'Keluar gudang' }, { key: 'installed', label: 'Di customer' }]"
+        :key="item.key"
+      >
         <p class="text-sm text-dimmed">{{ item.label }}</p>
         <p class="mt-2 text-2xl font-semibold text-highlighted">{{ summary[item.key as keyof typeof summary] }}</p>
       </UCard>
     </div>
-    <UAlert v-if="errorMessage" color="error" variant="subtle" :title="errorMessage" />
-    <UAlert v-if="successMessage" color="success" variant="subtle" :title="successMessage" />
+    <UAlert
+      v-if="errorMessage"
+      color="error"
+      variant="subtle"
+      :title="errorMessage"
+    />
+    <UAlert
+      v-if="successMessage"
+      color="success"
+      variant="subtle"
+      :title="successMessage"
+    />
     <UCard>
       <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <UInput v-model="search" icon="i-lucide-search" placeholder="Cari MP No, Serial, kategori, model, lokasi — pisahkan keyword dengan koma" class="w-full" @keyup.enter="resetPage" />
-        <div class="flex shrink-0 justify-end gap-2"><UButton color="neutral" variant="outline" icon="i-lucide-refresh-cw" aria-label="Refresh data" :loading="loading" @click="loadRows" /><UButton icon="i-lucide-plus" label="Tambah Unit" @click="openCreate" /></div>
+        <UInput
+          v-model="search"
+          icon="i-lucide-search"
+          placeholder="Cari MP No, Serial, kategori, model, lokasi — pisahkan keyword dengan koma"
+          class="w-full"
+          @keyup.enter="resetPage"
+        />
+        <div class="flex shrink-0 justify-end gap-2">
+          <UButton
+            color="neutral"
+            variant="outline"
+            icon="i-lucide-refresh-cw"
+            aria-label="Refresh data"
+            :loading="loading"
+            @click="loadRows"
+          />
+          <UButton
+            icon="i-lucide-plus"
+            label="Tambah Unit"
+            @click="openCreate"
+          />
+        </div>
       </div>
     </UCard>
     <UCard>
-      <div class="mb-4 flex flex-wrap items-center justify-between gap-2"><div><h2 class="font-semibold text-highlighted">Daftar Unit Printer</h2><p class="text-sm text-dimmed">{{ total }} unit ditemukan</p></div><USelect v-model="pageSize" :items="[10, 25, 50].map(value => ({ label: `${value} baris`, value }))" class="w-32" /></div>
-      <UTable :data="paginatedRows" :columns="columns" :loading="loading">
+      <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h2 class="font-semibold text-highlighted">Daftar Unit Printer</h2>
+          <p class="text-sm text-dimmed">{{ total }} unit ditemukan</p>
+        </div>
+        <USelect
+          v-model="pageSize"
+          :items="[10, 25, 50].map(value => ({ label: `${value} baris`, value }))"
+          class="w-32"
+        />
+      </div>
+      <UTable
+        :data="paginatedRows"
+        :columns="columns"
+        :loading="loading"
+      >
         <template #serial_number-cell="{ row }">{{ row.original.serial_number || '-' }}</template>
-        <template #status_operasional-cell="{ row }"><UBadge color="info" variant="subtle">{{ row.original.status_operasional || row.original.status || '-' }}</UBadge></template>
-        <template #actions-cell="{ row }"><div class="flex flex-wrap gap-1"><UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-pencil" aria-label="Edit unit" @click="openEdit(row.original)" /><UButton v-if="row.original.status === 'available'" size="xs" color="primary" variant="ghost" label="Transfer" @click="openAction(row.original, 'transfer')" /><UButton v-if="row.original.status === 'available'" size="xs" color="warning" variant="ghost" label="Keluarkan" @click="openAction(row.original, 'withdraw')" /><UButton v-if="row.original.status === 'issued'" size="xs" color="success" variant="ghost" label="Kembalikan" @click="openAction(row.original, 'return')" /></div></template>
-        <template #empty><div class="py-8 text-center text-sm text-dimmed">{{ loading ? 'Memuat data...' : 'Belum ada unit printer.' }}</div></template>
+        <template #status_operasional-cell="{ row }">
+          <UBadge
+            color="info"
+            variant="subtle"
+          >
+            {{ row.original.status_operasional || row.original.status || '-' }}
+          </UBadge>
+        </template>
+        <template #actions-cell="{ row }">
+          <div class="flex flex-wrap gap-1">
+            <UButton
+              size="xs"
+              color="neutral"
+              variant="ghost"
+              icon="i-lucide-pencil"
+              aria-label="Edit unit"
+              @click="openEdit(row.original)"
+            />
+            <UButton
+              v-if="row.original.status === 'available'"
+              size="xs"
+              color="primary"
+              variant="ghost"
+              label="Transfer"
+              @click="openAction(row.original, 'transfer')"
+            />
+            <UButton
+              v-if="row.original.status === 'available'"
+              size="xs"
+              color="warning"
+              variant="ghost"
+              label="Keluarkan"
+              @click="openAction(row.original, 'withdraw')"
+            />
+            <UButton
+              v-if="row.original.status === 'issued'"
+              size="xs"
+              color="success"
+              variant="ghost"
+              label="Kembalikan"
+              @click="openAction(row.original, 'return')"
+            />
+          </div>
+        </template>
+        <template #empty>
+          <div class="py-8 text-center text-sm text-dimmed">{{ loading ? 'Memuat data...' : 'Belum ada unit printer.' }}</div>
+        </template>
       </UTable>
-      <div class="mt-4 flex justify-end"><UPagination v-model:page="page" :page-count="pageSize" :total="total" /></div>
+      <div class="mt-4 flex justify-end">
+        <UPagination
+          v-model:page="page"
+          :page-count="pageSize"
+          :total="total"
+        />
+      </div>
     </UCard>
-    <UModal v-model:open="actionModalOpen" :title="actionTitle">
-      <template #body><UForm :state="actionForm" class="space-y-4" @submit="submitAction"><p class="text-sm text-dimmed">{{ actionRow?.mp_no }}</p><UFormField v-if="action !== 'withdraw'" label="Gudang Tujuan" name="gudang_id" required><USelect v-model="actionForm.gudang_id" :items="warehouseOptions.filter(item => item.value !== actionRow?.gudang_id)" placeholder="Pilih gudang" class="w-full" /></UFormField><UFormField label="Alasan" name="alasan" required><UTextarea v-model="actionForm.alasan" placeholder="Tuliskan alasan aksi" class="w-full" /></UFormField><UButton type="submit" block :loading="saving">Proses</UButton></UForm></template>
-    </UModal>
-    <UModal v-model:open="crudModalOpen" :title="editing ? 'Edit Unit Printer' : 'Tambah Unit Printer'">
+    <UModal
+      v-model:open="actionModalOpen"
+      :title="actionTitle"
+    >
       <template #body>
-        <UForm :state="form" class="space-y-4" @submit="savePrinter">
-          <UAlert v-if="crudError" color="error" variant="subtle" :title="crudError" />
-          <UFormField label="MP No" name="mp_no" required><UInput v-model="form.mp_no" class="w-full" /></UFormField>
-          <UFormField label="Serial Number" name="serial_number"><UInput v-model="form.serial_number" class="w-full" /></UFormField>
-          <UFormField label="Model" name="model_id" required>
-            <USelectMenu v-model="modelSelection" v-model:search-term="modelSearch" :items="modelOptions" value-key="value" ignore-filter :loading="modelLoading" :search-input="{ placeholder: 'Cari merek atau model printer' }" placeholder="Pilih model" class="w-full" />
-            <p v-if="modelError" class="mt-1 text-sm text-error">{{ modelError }}</p>
-            <p v-else-if="!modelLoading && !models.length && modelSearch.trim()" class="mt-1 text-sm text-dimmed">Model printer tidak ditemukan.</p>
+        <UForm
+          :state="actionForm"
+          class="space-y-4"
+          @submit="submitAction"
+        >
+          <p class="text-sm text-dimmed">{{ actionRow?.mp_no }}</p>
+          <UFormField
+            v-if="action !== 'withdraw'"
+            label="Gudang Tujuan"
+            name="gudang_id"
+            required
+          >
+            <USelect
+              v-model="actionForm.gudang_id"
+              :items="warehouseOptions.filter(item => item.value !== actionRow?.gudang_id)"
+              placeholder="Pilih gudang"
+              class="w-full"
+            />
           </UFormField>
-          <UFormField v-if="!editing" label="Gudang Awal" name="gudang_id" required><USelect v-model="warehouseSelection" :items="warehouseCreateOptions" placeholder="Pilih gudang" class="w-full" /></UFormField>
-          <UFormField label="Tanggal Pembelian"><UInput v-model="form.tanggal_pembelian" type="date" /></UFormField>
-          <UFormField label="Interval Maintenance (Bulan)"><UInput v-model="form.interval_maintenance_bulan" type="number" min="1" max="120" /></UFormField>
-          <UFormField label="Keterangan"><UTextarea v-model="form.keterangan" class="w-full" /></UFormField>
-          <UButton type="submit" block :loading="crudSaving">Simpan</UButton>
+          <UFormField
+            label="Alasan"
+            name="alasan"
+            required
+          >
+            <UTextarea
+              v-model="actionForm.alasan"
+              placeholder="Tuliskan alasan aksi"
+              class="w-full"
+            />
+          </UFormField>
+          <UButton
+            type="submit"
+            block
+            :loading="saving"
+          >
+            Proses
+          </UButton>
         </UForm>
       </template>
     </UModal>
-    <UModal v-model:open="quickModelModalOpen" title="Buat Model Printer">
+    <UModal
+      v-model:open="crudModalOpen"
+      :title="editing ? 'Edit Unit Printer' : 'Tambah Unit Printer'"
+    >
       <template #body>
-        <UForm :state="quickModel" class="space-y-4" @submit="createQuickModel">
-          <UAlert v-if="quickModelError" color="error" variant="subtle" :title="quickModelError" />
-          <UFormField label="Kategori" name="kategori_id" required><USelect v-model="quickCategorySelection" :items="categoryOptions" placeholder="Pilih kategori" class="w-full" /></UFormField>
-          <UFormField label="Kode Model" name="kode_model" required><UInput v-model="quickModel.kode_model" class="w-full" /></UFormField>
-          <UFormField label="Merek" name="merek" required><UInput v-model="quickModel.merek" class="w-full" /></UFormField>
-          <UFormField label="Nama Model" name="nama_model" required><UInput v-model="quickModel.nama_model" class="w-full" /></UFormField>
-          <UButton type="submit" block :loading="quickModelSaving">Simpan Model</UButton>
+        <UForm
+          :state="form"
+          class="space-y-4"
+          @submit="savePrinter"
+        >
+          <UAlert
+            v-if="crudError"
+            color="error"
+            variant="subtle"
+            :title="crudError"
+          />
+          <UFormField
+            label="MP No"
+            name="mp_no"
+            required
+          >
+            <UInput
+              v-model="form.mp_no"
+              class="w-full"
+            />
+          </UFormField>
+          <UFormField
+            label="Serial Number"
+            name="serial_number"
+          >
+            <UInput
+              v-model="form.serial_number"
+              class="w-full"
+            />
+          </UFormField>
+          <UFormField
+            label="Model"
+            name="model_id"
+            required
+          >
+            <USelectMenu
+              v-model="modelSelection"
+              v-model:search-term="modelSearch"
+              :items="modelOptions"
+              value-key="value"
+              ignore-filter
+              :loading="modelLoading"
+              :search-input="{ placeholder: 'Cari merek atau model printer' }"
+              placeholder="Pilih model"
+              class="w-full"
+            />
+            <p
+              v-if="modelError"
+              class="mt-1 text-sm text-error"
+            >
+              {{ modelError }}
+            </p>
+            <p
+              v-else-if="!modelLoading && !models.length && modelSearch.trim()"
+              class="mt-1 text-sm text-dimmed"
+            >
+              Model printer tidak ditemukan.
+            </p>
+          </UFormField>
+          <UFormField
+            v-if="!editing"
+            label="Gudang Awal"
+            name="gudang_id"
+            required
+          >
+            <USelect
+              v-model="warehouseSelection"
+              :items="warehouseCreateOptions"
+              placeholder="Pilih gudang"
+              class="w-full"
+            />
+          </UFormField>
+          <UFormField label="Tanggal Pembelian">
+            <UInput
+              v-model="form.tanggal_pembelian"
+              type="date"
+            />
+          </UFormField>
+          <UFormField label="Interval Maintenance (Bulan)">
+            <UInput
+              v-model="form.interval_maintenance_bulan"
+              type="number"
+              min="1"
+              max="120"
+            />
+          </UFormField>
+          <UFormField label="Keterangan">
+            <UTextarea
+              v-model="form.keterangan"
+              class="w-full"
+            />
+          </UFormField>
+          <UButton
+            type="submit"
+            block
+            :loading="crudSaving"
+          >
+            Simpan
+          </UButton>
         </UForm>
       </template>
     </UModal>
-    <UModal v-model:open="quickWarehouseModalOpen" title="Buat Gudang">
+    <UModal
+      v-model:open="quickModelModalOpen"
+      title="Buat Model Printer"
+    >
       <template #body>
-        <UForm :state="quickWarehouse" class="space-y-4" @submit="createQuickWarehouse">
-          <UAlert v-if="quickWarehouseError" color="error" variant="subtle" :title="quickWarehouseError" />
-          <UFormField label="Kode Gudang" name="kode_gudang" required><UInput v-model="quickWarehouse.kode_gudang" class="w-full" /></UFormField>
-          <UFormField label="Nama Gudang" name="nama_gudang" required><UInput v-model="quickWarehouse.nama_gudang" class="w-full" /></UFormField>
-          <UFormField label="Jenis Gudang" name="jenis_gudang" required><USelect v-model="quickWarehouse.jenis_gudang" :items="[{ label: 'Utama', value: 'utama' }, { label: 'Cabang', value: 'cabang' }, { label: 'Teknisi', value: 'teknisi' }]" class="w-full" /></UFormField>
-          <UFormField v-if="quickWarehouse.jenis_gudang === 'teknisi'" label="Teknisi" name="teknisi_id" required><USelect v-model="quickWarehouse.teknisi_id" :items="technicianOptions" placeholder="Pilih teknisi" class="w-full" /></UFormField>
-          <UFormField label="Alamat" name="alamat"><UTextarea v-model="quickWarehouse.alamat" class="w-full" /></UFormField>
-          <UButton type="submit" block :loading="quickWarehouseSaving">Simpan Gudang</UButton>
+        <UForm
+          :state="quickModel"
+          class="space-y-4"
+          @submit="createQuickModel"
+        >
+          <UAlert
+            v-if="quickModelError"
+            color="error"
+            variant="subtle"
+            :title="quickModelError"
+          />
+          <UFormField
+            label="Kategori"
+            name="kategori_id"
+            required
+          >
+            <USelect
+              v-model="quickCategorySelection"
+              :items="categoryOptions"
+              placeholder="Pilih kategori"
+              class="w-full"
+            />
+          </UFormField>
+          <UFormField
+            label="Kode Model"
+            name="kode_model"
+            required
+          >
+            <UInput
+              v-model="quickModel.kode_model"
+              class="w-full"
+            />
+          </UFormField>
+          <UFormField
+            label="Merek"
+            name="merek"
+            required
+          >
+            <UInput
+              v-model="quickModel.merek"
+              class="w-full"
+            />
+          </UFormField>
+          <UFormField
+            label="Nama Model"
+            name="nama_model"
+            required
+          >
+            <UInput
+              v-model="quickModel.nama_model"
+              class="w-full"
+            />
+          </UFormField>
+          <UButton
+            type="submit"
+            block
+            :loading="quickModelSaving"
+          >
+            Simpan Model
+          </UButton>
         </UForm>
       </template>
     </UModal>
-    <UModal v-model:open="quickCategoryModalOpen" title="Buat Kategori Printer">
+    <UModal
+      v-model:open="quickWarehouseModalOpen"
+      title="Buat Gudang"
+    >
       <template #body>
-        <UForm :state="quickCategory" class="space-y-4" @submit="createQuickCategory">
-          <UAlert v-if="quickCategoryError" color="error" variant="subtle" :title="quickCategoryError" />
-          <UFormField label="Kode Kategori" name="kode_kategori" required><UInput v-model="quickCategory.kode_kategori" class="w-full" /></UFormField>
-          <UFormField label="Nama Kategori" name="nama_kategori" required><UInput v-model="quickCategory.nama_kategori" class="w-full" /></UFormField>
-          <UButton type="submit" block :loading="quickCategorySaving">Simpan Kategori</UButton>
+        <UForm
+          :state="quickWarehouse"
+          class="space-y-4"
+          @submit="createQuickWarehouse"
+        >
+          <UAlert
+            v-if="quickWarehouseError"
+            color="error"
+            variant="subtle"
+            :title="quickWarehouseError"
+          />
+          <UFormField
+            label="Kode Gudang"
+            name="kode_gudang"
+            required
+          >
+            <UInput
+              v-model="quickWarehouse.kode_gudang"
+              class="w-full"
+            />
+          </UFormField>
+          <UFormField
+            label="Nama Gudang"
+            name="nama_gudang"
+            required
+          >
+            <UInput
+              v-model="quickWarehouse.nama_gudang"
+              class="w-full"
+            />
+          </UFormField>
+          <UFormField
+            label="Jenis Gudang"
+            name="jenis_gudang"
+            required
+          >
+            <USelect
+              v-model="quickWarehouse.jenis_gudang"
+              :items="[{ label: 'Utama', value: 'utama' }, { label: 'Cabang', value: 'cabang' }, { label: 'Teknisi', value: 'teknisi' }]"
+              class="w-full"
+            />
+          </UFormField>
+          <UFormField
+            v-if="quickWarehouse.jenis_gudang === 'teknisi'"
+            label="Teknisi"
+            name="teknisi_id"
+            required
+          >
+            <USelect
+              v-model="quickWarehouse.teknisi_id"
+              :items="technicianOptions"
+              placeholder="Pilih teknisi"
+              class="w-full"
+            />
+          </UFormField>
+          <UFormField
+            label="Alamat"
+            name="alamat"
+          >
+            <UTextarea
+              v-model="quickWarehouse.alamat"
+              class="w-full"
+            />
+          </UFormField>
+          <UButton
+            type="submit"
+            block
+            :loading="quickWarehouseSaving"
+          >
+            Simpan Gudang
+          </UButton>
+        </UForm>
+      </template>
+    </UModal>
+    <UModal
+      v-model:open="quickCategoryModalOpen"
+      title="Buat Kategori Printer"
+    >
+      <template #body>
+        <UForm
+          :state="quickCategory"
+          class="space-y-4"
+          @submit="createQuickCategory"
+        >
+          <UAlert
+            v-if="quickCategoryError"
+            color="error"
+            variant="subtle"
+            :title="quickCategoryError"
+          />
+          <UFormField
+            label="Kode Kategori"
+            name="kode_kategori"
+            required
+          >
+            <UInput
+              v-model="quickCategory.kode_kategori"
+              class="w-full"
+            />
+          </UFormField>
+          <UFormField
+            label="Nama Kategori"
+            name="nama_kategori"
+            required
+          >
+            <UInput
+              v-model="quickCategory.nama_kategori"
+              class="w-full"
+            />
+          </UFormField>
+          <UButton
+            type="submit"
+            block
+            :loading="quickCategorySaving"
+          >
+            Simpan Kategori
+          </UButton>
         </UForm>
       </template>
     </UModal>

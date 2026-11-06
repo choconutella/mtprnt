@@ -52,7 +52,11 @@ function handleClick() {
       :ui="{ trailingIcon: 'ms-auto' }"
       @click="handleClick"
     />
-    <NuxtLink v-else :to="item.to!" class="block">
+    <NuxtLink
+      v-else
+      :to="item.to!"
+      class="block"
+    >
       <UButton
         block
         color="neutral"

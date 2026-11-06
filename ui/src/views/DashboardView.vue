@@ -466,7 +466,7 @@ const configs = {
       relation("printer_id", "Printer Terpasang (Opsional)", "printerTerpasang", "mp_no"),
       relation("pic_teknisi_id", "PIC", "teknisi", "name", true),
       field("jenis_pekerjaan", "Tipe", "select", true, ["maintenance", "installation", "delivery", "support"], { defaultValue: "maintenance" }),
-      field("status", "Status", "select", false, ["pending", "progress", "ready_to_print", "technician_completed", "warehouse_validated", "solved", "cancelled"], { defaultValue: "pending" }),
+      field("status", "Status", "select", false, ["pending", "progress", "technician_completed", "warehouse_validated", "solved", "cancelled"], { defaultValue: "pending" }),
       field("tanggal_jadwal", "Jadwal", "datetime-local"),
       field("catatan_masalah", "Catatan Masalah", "textarea"),
       field("tindakan", "Tindakan", "textarea"),
@@ -624,7 +624,7 @@ const stokViews = {
   }
 };
 const teknisiBar = computed(() => {
-  const aktif = new Set(["pending", "progress", "ready_to_print", "technician_completed", "warehouse_validated"]);
+  const aktif = new Set(["pending", "progress", "technician_completed", "warehouse_validated"]);
   const counts = options.suratTugas.reduce((result, surat) => {
     if (!aktif.has(surat.status)) return result;
     (surat.teknisi_surat_tugas || surat.teknisi || []).forEach((assignment) => {
@@ -1109,7 +1109,6 @@ function labelStatus(value) {
     progress: "Progress",
     solved: "Solved",
     cancelled: "Cancelled",
-    ready_to_print: "Ready to Print",
     technician_completed: "Technician Completed",
     warehouse_validated: "Validasi 1",
     sales_admin: "sales-admin",
@@ -1381,7 +1380,7 @@ function suratPunyaItem(item) {
 }
 
 function statusBisaPrint(status) {
-  return ["ready_to_print", "technician_completed", "warehouse_validated", "solved"].includes(status);
+  return ["technician_completed", "warehouse_validated", "solved"].includes(status);
 }
 
 function canUpdateItem(item) {
@@ -1415,8 +1414,7 @@ function canResolveComplaintItem(item) {
 function canRunSuratAction(item, action) {
   if (!item) return false;
   if (action === "start") return (isAdmin.value || roleAktif.value === "kepala_teknisi") && item.status === "pending";
-  if (action === "readyToPrint") return (isAdmin.value || (roleAktif.value === "teknisi" && teknisiAssigned(item))) && item.status === "progress";
-  if (action === "selesaiTeknisi") return (isAdmin.value || (roleAktif.value === "teknisi" && teknisiAssigned(item))) && item.status === "ready_to_print";
+  if (action === "selesaiTeknisi") return (isAdmin.value || (roleAktif.value === "teknisi" && teknisiAssigned(item))) && item.status === "progress";
   if (action === "validasiWarehouse") return (isAdmin.value || roleAktif.value === "warehouse") && item.status === "technician_completed" && suratPunyaItem(item);
   if (action === "resolve") {
     if (!(isAdmin.value || roleAktif.value === "kepala_teknisi")) return false;
@@ -1430,7 +1428,7 @@ function canPrintSuratItem(item) {
 }
 
 function canTambahItemSurat() {
-  return form.id && (isAdmin.value || (roleAktif.value === "teknisi" && teknisiAssigned(form))) && ["progress", "ready_to_print"].includes(form.status);
+  return form.id && (isAdmin.value || (roleAktif.value === "teknisi" && teknisiAssigned(form))) && form.status === "progress";
 }
 
 async function handleFieldChange(name) {
@@ -1524,7 +1522,7 @@ async function muatInstalledPrinterOptions() {
 function badgeClass(value) {
   if (value === true || ["aktif", "terhubung", "selesai", "disetujui", "terposting", "solved", "warehouse_validated"].includes(String(value).toLowerCase())) return "success";
   if (["darurat", "tinggi", "dibatalkan", "nonaktif", "cancelled"].includes(String(value).toLowerCase())) return "danger";
-  if (["draft", "baru", "ditugaskan", "diproses", "diajukan", "new", "pending", "progress", "ready_to_print", "technician_completed"].includes(String(value).toLowerCase())) return "info";
+  if (["draft", "baru", "ditugaskan", "diproses", "diajukan", "new", "pending", "progress", "technician_completed"].includes(String(value).toLowerCase())) return "info";
   return "neutral";
 }
 
@@ -1802,10 +1800,6 @@ async function aksiSurat(item, action) {
       endpoint: "start",
       pesan: "Surat tugas dimulai."
     },
-    readyToPrint: {
-      endpoint: "ready-to-print",
-      pesan: "Surat tugas siap dicetak."
-    },
     selesaiTeknisi: {
       endpoint: "selesai-teknisi",
       pesan: "Surat tugas selesai oleh teknisi."
@@ -1817,10 +1811,6 @@ async function aksiSurat(item, action) {
     resolve: {
       endpoint: "resolve",
       pesan: "Validasi 2 kepala teknisi berhasil."
-    },
-    ajukan: {
-      endpoint: "ready-to-print",
-      pesan: "Surat tugas siap dicetak."
     },
     setujui: {
       endpoint: "validasi-warehouse",

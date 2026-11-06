@@ -36,7 +36,7 @@ const errorMessage = ref("");
 const successMessage = ref("");
 const createOpen = ref(false);
 const editing = ref<Row | null>(null);
-const formTab = ref<"detail" | "items">("detail");
+const formTab = ref<"detail" | "items" | "unit">("detail");
 const formItems = ref<Row[]>([]);
 const addItemOpen = ref(false);
 const addItemKind = ref("printer");
@@ -49,9 +49,6 @@ const formItemColumns = [
   { accessorKey: "keterangan", header: "Keterangan" },
   { id: "actions", header: "" },
 ];
-const detailOpen = ref(false);
-const detail = ref<Row | null>(null);
-const tab = ref("general");
 const printerSearch = ref("");
 const printerLoading = ref(false);
 const form = reactive({
@@ -71,13 +68,6 @@ const form = reactive({
   new_model_id: "",
   printer_ids: [] as string[],
   hasil: "",
-});
-const itemForm = reactive({
-  jenis_barang: "toner",
-  item_id: "",
-  gudang_id: "",
-  jumlah_pakai: 1,
-  keterangan: "",
 });
 const formItem = reactive({
   jenis_barang: "toner",
@@ -127,34 +117,62 @@ const filteredRows = computed(() => {
 const selectedTicket = computed(() =>
   options.tickets.find((row) => row.id === form.tiket_id),
 );
+const maintenancePrinterId = computed({
+  get: () => form.printer_ids[0] || "",
+  set: (value: string) => {
+    form.printer_ids = value ? [value] : [];
+  },
+});
+const solvedDetails = computed(() => {
+  if (editing.value?.status !== "solved") return [];
+  const fields: { label: string; value: string }[] = [];
+  const add = (label: string, value: unknown) => {
+    if (value !== null && value !== undefined && value !== "") fields.push({ label, value: String(value) });
+  };
+  const label = (items: Row[], id: string, key: string) => items.find((item) => item.id === id)?.[key] || id;
+  add("Tiket", selectedTicket.value?.nomor_tiket || editing.value.tiket?.nomor_tiket);
+  add("Jenis Surat Tugas", kinds[form.jenis_tugas] || form.jenis_tugas);
+  add("Customer / Site", label(options.customers, form.customer_id, "nama_customer"));
+  add("Mode", modeItems.value.find((item) => item.value === form.mode)?.label || form.mode);
+  add("Kontrak Aktif", label(options.contracts, form.kontrak_id, "nomor_kontrak"));
+  add("Unit Lama", label(options.printers, form.unit_asal_id, "mp_no"));
+  add("Gudang", label(options.warehouses, form.gudang_id, "nama_gudang"));
+  add("PIC Warehouse", label(options.users, form.pic_warehouse_id, "nama_lengkap"));
+  if (form.jenis_tugas === "maintenance") add("Unit Printer", label(options.printers, maintenancePrinterId.value, "mp_no"));
+  add("PIC Teknisi", technicianItems.value.find((item) => item.value === form.pic_teknisi_id)?.label || form.pic_teknisi_id);
+  add("Divisi / Lokasi Internal", form.lokasi_internal);
+  add("Sumber / Pemasok", form.sumber);
+  if (form.jenis_tugas === "terima_printer_baru") add("MP No", form.new_mp_no);
+  if (form.jenis_tugas === "terima_printer_baru") add("Model", label(options.models, form.new_model_id, "nama_model"));
+  add("Hasil pekerjaan", editing.value.hasil);
+  add("Status", editing.value.status);
+  return fields;
+});
 const availablePrinters = computed(() => {
   return options.printers;
 });
-const itemChoices = computed(() =>
-  itemForm.jenis_barang === "toner" ? options.toners : options.spareparts,
-);
 const formItemChoices = computed(() =>
   (addItemOpen.value ? addItemKind.value : formItem.jenis_barang) === "toner"
     ? options.toners
     : options.spareparts,
 );
 const canAddFormItem = computed(
-  () => !!editing.value && ["progress", "ready_to_print"].includes(editing.value.status)
+  () => !!editing.value && editing.value.status === "progress"
     && ["admin", "teknisi"].includes(role.value),
 );
 const displayedItems = computed(() => [
-  ...form.printer_ids.map((id) => ({
+  ...(form.jenis_tugas === "maintenance" ? [] : form.printer_ids.map((id) => ({
     jenis_barang: "printer",
     item: options.printers.find((row) => row.id === id)?.mp_no || id,
     gudang: "-",
     jumlah_pakai: 1,
     keterangan: "",
     printer_id: id,
-  })),
+  }))),
   ...(form.jenis_tugas === "terima_printer_baru" && form.new_mp_no
     ? [{ jenis_barang: "printer", item: form.new_mp_no, gudang: "-", jumlah_pakai: 1, keterangan: "", fixed: true }]
     : []),
-  ...formItems.value,
+  ...formItems.value.filter((item) => form.jenis_tugas !== "maintenance" || item.jenis_barang !== "printer"),
 ]);
 const categoryToKinds: Record<string, string[]> = {
   delivery: [
@@ -255,10 +273,12 @@ function printerLocation(row: Row) {
   return `Lokasi: ${row.lokasi_jenis || "lainnya"}`;
 }
 const printerItems = computed(() =>
-  availablePrinters.value.map((row) => ({
+  availablePrinters.value
+    .filter((row) => form.jenis_tugas !== "maintenance" || selectedTicket.value || (row.lokasi_jenis === "gudang" && row.gudang_id === form.gudang_id))
+    .map((row) => ({
     label: `${row.mp_no} · ${row.master_printer_model?.nama_model || row.nama_model || "-"}`,
     value: row.id,
-  })),
+    })),
 );
 let customerSearchRequest = 0;
 let customerSearchTimer: ReturnType<typeof setTimeout> | undefined;
@@ -308,6 +328,10 @@ async function loadPrinters(query = "", initial = false) {
   const normalized = query.trim();
   if (!initial && normalized.length < 2) return;
   const requestId = ++printerSearchRequest;
+  if (form.jenis_tugas === "maintenance" && !selectedTicket.value && !form.gudang_id) {
+    options.printers = [];
+    return;
+  }
   printerLoading.value = true;
   try {
     const params = new URLSearchParams({
@@ -425,6 +449,14 @@ async function openEdit(row: Row) {
     const response = await request<Row>(`/surat-tugas/${row.id}`);
     const item = response.data || row;
     editing.value = item;
+    Object.keys(resultForms).forEach((key) => delete resultForms[key]);
+    item.surat_tugas_printer?.forEach((line: Row) => {
+      resultForms[line.id] = {
+        hasil: line.hasil || "",
+        kondisi_hasil: line.kondisi_hasil || "",
+        alasan: line.alasan || "",
+      };
+    });
     const ticket = item.tiket || options.tickets.find((value) => value.id === item.tiket_id);
     if (ticket && !options.tickets.some((value) => value.id === ticket.id))
       options.tickets.push(ticket);
@@ -497,6 +529,12 @@ function changeKind() {
   form.printer_ids = [];
   if (form.jenis_tugas !== "kirim_kontrak") form.kontrak_id = "";
 }
+function changeWarehouse() {
+  if (form.jenis_tugas === "maintenance" && !selectedTicket.value) {
+    form.printer_ids = [];
+    options.printers = [];
+  }
+}
 function payload() {
   const ticket = selectedTicket.value;
   const printer =
@@ -561,7 +599,7 @@ function addFormItem() {
 }
 function openAddItem() {
   pendingPrinterIds.value = [...form.printer_ids];
-  addItemKind.value = "printer";
+  addItemKind.value = form.jenis_tugas === "maintenance" ? "toner" : "printer";
   addItemOpen.value = true;
 }
 function confirmAddItem() {
@@ -616,6 +654,22 @@ async function saveFormItems(suratId: string) {
     item.existing = true;
   }
 }
+async function saveUnitResults(surat: Row) {
+  for (const line of surat.surat_tugas_printer || []) {
+    const result = resultForms[line.id];
+    if (!result) continue;
+    const hasil = result.hasil.trim();
+    const alasan = result.alasan.trim();
+    if (hasil === (line.hasil || "") && result.kondisi_hasil === (line.kondisi_hasil || "") && alasan === (line.alasan || "")) continue;
+    await request(`/surat-tugas/${surat.id}/printer/${line.id}/hasil`, {
+      method: "PUT",
+      body: { hasil, ...(result.kondisi_hasil ? { kondisi_hasil: result.kondisi_hasil } : {}), alasan: alasan || null },
+    });
+    line.hasil = hasil;
+    line.kondisi_hasil = result.kondisi_hasil;
+    line.alasan = alasan;
+  }
+}
 async function create() {
   if (props.embedded && !selectedTicket.value) {
     errorMessage.value = "Tiket belum berhasil dimuat.";
@@ -640,6 +694,23 @@ async function create() {
 }
 async function saveEdit() {
   if (!editing.value) return;
+  if (editing.value.status === "solved") return;
+  const surat = editing.value;
+  for (const line of surat.surat_tugas_printer || []) {
+    const result = resultForms[line.id];
+    if (!result) continue;
+    const changed = result.hasil.trim() !== (line.hasil || "") || result.kondisi_hasil !== (line.kondisi_hasil || "") || result.alasan.trim() !== (line.alasan || "");
+    if (changed && !result.hasil.trim()) {
+      errorMessage.value = `Isi Hasil Unit ${line.mp_no}.`;
+      formTab.value = "unit";
+      return;
+    }
+    if (changed && ["qc", "repair"].includes(surat.jenis_tugas) && !result.kondisi_hasil) {
+      errorMessage.value = `Pilih Kondisi hasil untuk ${line.mp_no}.`;
+      formTab.value = "unit";
+      return;
+    }
+  }
   saving.value = true;
   errorMessage.value = "";
   try {
@@ -648,17 +719,18 @@ async function saveEdit() {
     await request(`/surat-tugas/${editing.value.id}`, {
       method: "PUT",
       body: {
-        account_id: ticket?.account_id || form.account_id,
-        customer_id: ticket?.customer_id || form.customer_id,
+        account_id: ticket?.account_id || form.account_id || null,
+        customer_id: ticket?.customer_id || form.customer_id || null,
         pic_teknisi_id: form.pic_teknisi_id || null,
         jenis_pekerjaan: form.jenis_tugas,
         mode: form.mode || null,
-        printer_id: selectedPrinter?.id || null,
+        printer_id: form.jenis_tugas === "maintenance" && !form.tiket_id ? null : selectedPrinter?.id || null,
         mp_no: selectedPrinter?.mp_no || form.new_mp_no || null,
         hasil: form.hasil || null,
       },
     });
     await saveFormItems(editing.value.id);
+    await saveUnitResults(surat);
     createOpen.value = false;
     editing.value = null;
     successMessage.value = "Surat Tugas berhasil diperbarui.";
@@ -669,38 +741,17 @@ async function saveEdit() {
     saving.value = false;
   }
 }
-async function openDetail(row: Row) {
-  try {
-    const response = await request<Row>(`/surat-tugas/${row.id}`);
-    detail.value = response.data;
-    tab.value = "general";
-    form.hasil = detail.value?.hasil || "";
-    Object.keys(resultForms).forEach((key) => delete resultForms[key]);
-    detail.value?.surat_tugas_printer?.forEach((line: Row) => {
-      resultForms[line.id] = {
-        hasil: line.hasil || "",
-        kondisi_hasil: line.kondisi_hasil || "",
-        alasan: line.alasan || "",
-      };
-    });
-    detailOpen.value = true;
-  } catch (error) {
-    errorMessage.value = message(error, "Detail Surat Tugas gagal dimuat.");
-  }
-}
-function canAct(action: string, row = detail.value) {
+function canAct(action: string, row = editing.value) {
   if (!row) return false;
   const leader = ["admin", "kepala_teknisi"].includes(role.value);
   const worker = ["admin", "teknisi"].includes(role.value);
   const store = ["admin", "warehouse"].includes(role.value);
   if (action === "start")
     return (leader || (store && isInboundRow(row))) && row.status === "pending";
-  if (action === "ready-to-print")
-    return worker && row.status === "progress" && !isInboundRow(row);
   if (action === "keluar")
     return (
       store &&
-      row.status === "ready_to_print" &&
+      row.status === "progress" &&
       !row.konfirmasi_keluar_pada &&
       !isInboundRow(row) &&
       (String(row.jenis_tugas || "").startsWith("kirim_") ||
@@ -711,7 +762,7 @@ function canAct(action: string, row = detail.value) {
   if (action === "serah")
     return (
       worker &&
-      row.status === "ready_to_print" &&
+      row.status === "progress" &&
       !row.konfirmasi_serah_pada &&
       String(row.jenis_tugas || "").startsWith("kirim_") &&
       (row.konfirmasi_keluar_pada ||
@@ -728,7 +779,7 @@ function canAct(action: string, row = detail.value) {
     return (
       isInboundRow(row)
         ? store && row.status === "warehouse_validated"
-        : worker && row.status === "ready_to_print" &&
+        : worker && row.status === "progress" &&
           (!String(row.jenis_tugas || "").startsWith("kirim_") || !!row.konfirmasi_serah_pada) &&
           (!(row.pemakaian_barang_surat_tugas || []).some((item: Row) => item.jenis_barang !== "printer") || !!row.konfirmasi_keluar_pada)
     );
@@ -750,20 +801,18 @@ function canAct(action: string, row = detail.value) {
 }
 const workflowLabels: Record<string, string> = {
   start: "Mulai",
-  "ready-to-print": "Siap Cetak",
   keluar: "Konfirmasi Keluar",
-  serah: "Konfirmasi Serah",
+  serah: "Konfirmasi Pengembalian",
   terima: "Konfirmasi Terima",
   selesai: "Selesai Pekerjaan",
   resolve: "Resolve",
 };
 function nextWorkflowAction(row: Row | null) {
   if (!row) return null;
-  return ["start", "ready-to-print", "keluar", "serah", "terima", "selesai", "resolve"]
+  return ["start", "keluar", "serah", "terima", "selesai", "resolve"]
     .find((name) => canAct(name, row)) || null;
 }
 function completedWorkflowLabel(row: Row) {
-  if (row.status === "ready_to_print") return "Siap Cetak";
   if (row.status === "technician_completed") return "Selesai Pekerjaan";
   if (row.status === "warehouse_validated") return "Konfirmasi Terima";
   return "Mulai";
@@ -771,86 +820,42 @@ function completedWorkflowLabel(row: Row) {
 function isInboundRow(row: Row) {
   return String(row.jenis_tugas || "").startsWith("terima_");
 }
-async function action(name: string, row = detail.value) {
+async function action(name: string, row = editing.value) {
   if (
     !row ||
     (name === "cancel" && !window.confirm("Batalkan Surat Tugas ini?"))
   )
     return;
+  if (name === "selesai" && ["qc", "repair", "maintenance", "on_site_service"].includes(row.jenis_tugas)) {
+    for (const line of row.surat_tugas_printer || []) {
+      const result = resultForms[line.id];
+      if (!result?.hasil?.trim()) {
+        errorMessage.value = `Isi Hasil Unit ${line.mp_no} sebelum Selesai Pekerjaan.`;
+        formTab.value = "unit";
+        return;
+      }
+      if (["qc", "repair"].includes(row.jenis_tugas) && !result.kondisi_hasil) {
+        errorMessage.value = `Pilih Kondisi hasil untuk ${line.mp_no}.`;
+        formTab.value = "unit";
+        return;
+      }
+    }
+  }
   saving.value = true;
   errorMessage.value = "";
   try {
+    if (name === "selesai") await saveUnitResults(row);
     await request(`/surat-tugas/${row.id}/${name}`, {
       method: "POST",
       body: name === "selesai" ? { hasil: form.hasil || null } : undefined,
     });
     successMessage.value = "Status Surat Tugas diperbarui.";
     await load();
-    if (createOpen.value) await openEdit(row);
-    else await openDetail(row);
+    await openEdit(row);
   } catch (error) {
     errorMessage.value = message(error, "Workflow Surat Tugas gagal diproses.");
   } finally {
     saving.value = false;
-  }
-}
-async function assign() {
-  if (!detail.value || !form.pic_teknisi_id) return;
-  try {
-    await request(`/surat-tugas/${detail.value.id}/assign`, {
-      method: "POST",
-      body: { pic_teknisi_id: form.pic_teknisi_id },
-    });
-    await openDetail(detail.value);
-    successMessage.value = "PIC teknisi ditugaskan.";
-  } catch (error) {
-    errorMessage.value = message(error, "PIC gagal ditugaskan.");
-  }
-}
-async function saveResult(line: Row) {
-  try {
-    await request(`/surat-tugas/${detail.value?.id}/printer/${line.id}/hasil`, {
-      method: "PUT",
-      body: resultForms[line.id],
-    });
-    await openDetail(detail.value);
-    successMessage.value = "Hasil unit tersimpan.";
-  } catch (error) {
-    errorMessage.value = message(error, "Hasil unit gagal disimpan.");
-  }
-}
-async function addItem() {
-  try {
-    const body = {
-      gudang_id: itemForm.gudang_id,
-      jenis_barang: itemForm.jenis_barang,
-      jumlah_pakai: Number(itemForm.jumlah_pakai),
-      keterangan: itemForm.keterangan || null,
-      ...(itemForm.jenis_barang === "toner"
-        ? { toner_id: itemForm.item_id }
-        : { suku_cadang_id: itemForm.item_id }),
-    };
-    await request(`/surat-tugas/${detail.value?.id}/pemakaian`, {
-      method: "POST",
-      body,
-    });
-    await openDetail(detail.value);
-    tab.value = "item";
-    successMessage.value = "Item pemakaian ditambahkan.";
-  } catch (error) {
-    errorMessage.value = message(error, "Item pemakaian gagal ditambahkan.");
-  }
-}
-async function deleteItem(item: Row) {
-  if (!detail.value || !window.confirm("Hapus item pemakaian ini?")) return;
-  try {
-    await request(`/surat-tugas/${detail.value.id}/pemakaian/${item.id}`, {
-      method: "DELETE",
-    });
-    await openDetail(detail.value);
-    tab.value = "item";
-  } catch (error) {
-    errorMessage.value = message(error, "Item pemakaian gagal dihapus.");
   }
 }
 onMounted(async () => {
@@ -938,7 +943,8 @@ watch(
             aria-label="Refresh data"
             :loading="loading"
             @click="load"
-          /><UButton
+          />
+          <UButton
             v-if="canCreate"
             icon="i-lucide-plus"
             label="Buat Surat Tugas"
@@ -969,8 +975,10 @@ watch(
         <template #master_customer-cell="{ row }">{{
           row.original.master_customer?.nama_customer || "-"
         }}</template>
-        <template #status-cell="{ row }"
-          ><UBadge
+        <template
+          #status-cell="{ row }"
+        >
+          <UBadge
             :color="
               ['solved', 'technician_completed'].includes(row.original.status)
                 ? 'success'
@@ -979,41 +987,60 @@ watch(
                   : 'info'
             "
             variant="subtle"
-            >{{ row.original.status || "-" }}</UBadge
-          ></template
+            >
+              {{ row.original.status || "-" }}
+            </UBadge>
+        </template>
+        <template
+          #actions-cell="{ row }"
         >
-        <template #actions-cell="{ row }"
-          ><UButton
+          <UButton
             size="xs"
             color="neutral"
             variant="ghost"
-            icon="i-lucide-pencil"
-            aria-label="Edit Surat Tugas"
+            :icon="row.original.status === 'solved' ? 'i-lucide-eye' : 'i-lucide-pencil'"
+            :aria-label="row.original.status === 'solved' ? 'Lihat Surat Tugas' : 'Edit Surat Tugas'"
             @click="openEdit(row.original)"
-        /></template>
-        <template #empty
-          ><div class="py-10 text-center text-sm text-dimmed">
-            {{ loading ? "Memuat data..." : "Belum ada Surat Tugas." }}
-          </div></template
+          />
+        </template>
+        <template
+          #empty
         >
+          <div class="py-10 text-center text-sm text-dimmed">
+            {{ loading ? "Memuat data..." : "Belum ada Surat Tugas." }}
+          </div>
+        </template>
       </UTable>
     </UCard>
 
     <UModal
       v-model:open="createOpen"
-      :title="editing ? 'Edit Surat Tugas' : 'Buat Surat Tugas'"
+      :title="editing?.status === 'solved' ? 'Lihat Surat Tugas' : editing ? 'Edit Surat Tugas' : 'Buat Surat Tugas'"
       :ui="{
         content: 'sm:max-w-3xl h-[80vh] max-h-[800px]',
         body: 'overflow-y-auto',
       }"
     >
-      <template #body
-        ><UForm :state="form" class="space-y-4" @submit="editing ? saveEdit() : create()">
+      <template
+        #body
+      >
+        <UForm
+          :state="form"
+          class="space-y-4"
+          @submit="editing ? saveEdit() : create()"
+        >
           <UAlert
             v-if="errorMessage"
             color="error"
             variant="subtle"
             :title="errorMessage"
+          />
+          <UAlert
+            v-if="editing?.status === 'solved'"
+            color="info"
+            variant="subtle"
+            title="Surat Tugas selesai"
+            description="Data hanya dapat dilihat."
           />
           <div class="flex flex-col gap-4 sm:flex-row">
             <nav
@@ -1026,55 +1053,86 @@ watch(
                 :variant="formTab === 'detail' ? 'soft' : 'ghost'"
                 color="neutral"
                 @click="formTab = 'detail'"
-                >Detil</UButton
               >
+                Detil
+              </UButton>
               <UButton
+                v-if="form.jenis_tugas"
                 type="button"
                 class="justify-start"
                 :variant="formTab === 'items' ? 'soft' : 'ghost'"
                 color="neutral"
                 @click="formTab = 'items'"
-                >Items ({{ displayedItems.length }})</UButton
               >
+                Items ({{ displayedItems.length }})
+              </UButton>
+              <UButton
+                v-if="editing?.jenis_tugas && editing.surat_tugas_printer?.length"
+                type="button"
+                class="justify-start"
+                :variant="formTab === 'unit' ? 'soft' : 'ghost'"
+                color="neutral"
+                @click="formTab = 'unit'"
+              >
+                Unit Printer
+              </UButton>
             </nav>
             <div class="min-w-0 flex-1 space-y-4">
-          <div v-if="formTab === 'detail'" class="space-y-4">
-          <div class="grid gap-4">
-            <UFormField :label="embedded ? 'Tiket' : 'Tiket (opsional)'"
-              ><UInput
-                v-if="embedded"
-                :model-value="selectedTicket?.nomor_tiket || 'Memuat tiket...'"
+          <div
+            v-if="editing?.status === 'solved' && formTab === 'detail'"
+            class="grid gap-4"
+          >
+            <UFormField
+              v-for="field in solvedDetails"
+              :key="field.label"
+              :label="field.label"
+            >
+              <UInput
+                :model-value="field.value"
                 readonly
                 class="w-full"
-              /><USelect
-                v-else
-                v-model="form.tiket_id"
-                :items="
-                  options.tickets
-                    .filter(
-                      (row) => !['solved', 'cancelled'].includes(row.status),
-                    )
-                    .map((row) => ({
-                      label: `${row.nomor_tiket} · ${row.jenis || row.kategori || ''}`,
-                      value: row.id,
-                    }))
-                "
-                placeholder="Surat Tugas mandiri"
-                class="w-full"
-                @update:model-value="useTicket" /></UFormField
-            ><UFormField label="Jenis Surat Tugas" required
-              ><USelectMenu
-                v-model="form.jenis_tugas"
-                :items="kindItems"
-                value-key="value"
-                searchable
-                searchable-placeholder="Ketik untuk mencari jenis Surat Tugas"
-                placeholder="Pilih jenis"
-                class="w-full"
-                @update:model-value="changeKind"
-            /></UFormField>
+              />
+            </UFormField>
           </div>
-          <div v-if="!selectedTicket" class="grid gap-4">
+          <div
+            v-else-if="formTab === 'detail'"
+            class="space-y-4"
+          >
+          <div class="grid gap-4">
+            <UFormField
+              v-if="embedded || form.tiket_id"
+              label="Tiket"
+            >
+                    <UInput
+                      :model-value="selectedTicket?.nomor_tiket || 'Memuat tiket...'"
+                      readonly
+                      class="w-full"
+                    />
+            </UFormField>
+                  <UFormField
+                    label="Jenis Surat Tugas"
+                    required
+                  >
+                    <USelectMenu
+                      v-model="form.jenis_tugas"
+                      :items="kindItems"
+                      value-key="value"
+                      searchable
+                      searchable-placeholder="Ketik untuk mencari jenis Surat Tugas"
+                      placeholder="Pilih jenis"
+                      class="w-full"
+                      @update:model-value="changeKind"
+                    />
+                  </UFormField>
+          </div>
+          <div
+            v-if="form.jenis_tugas"
+            class="space-y-4"
+          >
+          <div
+            v-if="!selectedTicket && form.jenis_tugas !== 'maintenance'"
+            class="grid gap-4"
+          >
             <UFormField
               label="Customer / Site"
               :required="
@@ -1082,7 +1140,8 @@ watch(
                   form.jenis_tugas,
                 )
               "
-              ><USelectMenu
+              >
+                      <USelectMenu
                 v-model="form.customer_id"
                 v-model:search-term="customerSearch"
                 :items="customerItems"
@@ -1094,25 +1153,32 @@ watch(
                 placeholder="Pilih customer / site"
                 class="w-full"
                 @update:model-value="selectCustomer"
-            /></UFormField>
+            />
+            </UFormField>
           </div>
           <div
             v-if="['kirim_kontrak', 'kirim_back_up'].includes(form.jenis_tugas)"
             class="grid gap-4"
           >
-            <UFormField label="Mode" required
-              ><USelect
-                v-model="form.mode"
-                :items="modeItems"
-                placeholder="Pilih mode"
-                class="w-full" /></UFormField
-            ><UFormField
+            <UFormField
+              label="Mode"
+              required
+            >
+                      <USelect
+                        v-model="form.mode"
+                        :items="modeItems"
+                        placeholder="Pilih mode"
+                        class="w-full"
+                      />
+            </UFormField>
+                    <UFormField
               v-if="
                 form.jenis_tugas === 'kirim_kontrak' && form.mode === 'tukar'
               "
               label="Kontrak Aktif"
               required
-              ><USelect
+              >
+                      <USelect
                 v-model="form.kontrak_id"
                 :items="
                   options.contracts
@@ -1125,7 +1191,8 @@ watch(
                 "
                 placeholder="Pilih kontrak"
                 class="w-full"
-            /></UFormField>
+            />
+                    </UFormField>
           </div>
           <div
             v-if="
@@ -1134,13 +1201,16 @@ watch(
             "
             class="grid gap-4"
           >
-            <UFormField label="Unit Lama"
-              ><USelect
-                v-model="form.unit_asal_id"
-                :items="printerItems"
-                placeholder="Pilih unit customer"
-                class="w-full"
-            /></UFormField>
+            <UFormField
+              label="Unit Lama"
+            >
+                      <USelect
+                        v-model="form.unit_asal_id"
+                        :items="printerItems"
+                        placeholder="Pilih unit customer"
+                        class="w-full"
+                      />
+            </UFormField>
           </div>
           <div
             v-if="
@@ -1157,52 +1227,108 @@ watch(
                 'terima_unit_rusak',
                 'terima_return',
                 'terima_printer_baru',
+                ...(!selectedTicket ? ['maintenance'] : []),
               ].includes(form.jenis_tugas)
             "
             class="grid gap-4"
           >
-            <UFormField label="Gudang" required
-              ><USelect
-                v-model="form.gudang_id"
-                :items="warehouseItems"
-                placeholder="Pilih gudang"
-                class="w-full" /></UFormField
-            ><UFormField v-if="isInbound" label="PIC Warehouse" required
-              ><USelect
-                v-model="form.pic_warehouse_id"
-                :items="warehouseUserItems"
-                placeholder="Pilih PIC warehouse"
-                class="w-full"
-            /></UFormField>
+            <UFormField
+              label="Gudang"
+              required
+            >
+                      <USelect
+                        v-model="form.gudang_id"
+                        :items="warehouseItems"
+                        placeholder="Pilih gudang"
+                        class="w-full"
+                        @update:model-value="changeWarehouse"
+                      />
+            </UFormField>
+                    <UFormField
+                      v-if="isInbound"
+                      label="PIC Warehouse"
+                      required
+                    >
+                      <USelect
+                        v-model="form.pic_warehouse_id"
+                        :items="warehouseUserItems"
+                        placeholder="Pilih PIC warehouse"
+                        class="w-full"
+                      />
+                    </UFormField>
           </div>
-          <UFormField v-if="!isInbound" label="PIC Teknisi" required
-            ><USelectMenu
-              v-model="form.pic_teknisi_id"
-              v-model:search-term="technicianSearch"
-              :items="technicianItems"
-              value-key="value"
-              ignore-filter
-              :search-input="{ placeholder: 'Ketik untuk mencari teknisi' }"
-              :loading="technicianLoading"
-              placeholder="Pilih PIC teknisi"
-              class="w-full"
-          /></UFormField>
+          <UFormField
+            v-if="form.jenis_tugas === 'maintenance'"
+            label="Unit Printer"
+            required
+          >
+                    <USelectMenu
+                      v-model="maintenancePrinterId"
+                      v-model:search-term="printerSearch"
+                      :items="printerItems"
+                      value-key="value"
+                      ignore-filter
+                      :search-input="{ placeholder: 'Cari MP No atau serial printer' }"
+                      :loading="printerLoading"
+                      :disabled="!selectedTicket && !form.gudang_id"
+                      placeholder="Pilih unit printer"
+                      class="w-full"
+                    />
+          </UFormField>
+          <UFormField
+            v-if="!isInbound"
+            label="PIC Teknisi"
+            required
+          >
+                    <USelectMenu
+                      v-model="form.pic_teknisi_id"
+                      v-model:search-term="technicianSearch"
+                      :items="technicianItems"
+                      value-key="value"
+                      ignore-filter
+                      :search-input="{ placeholder: 'Ketik untuk mencari teknisi' }"
+                      :loading="technicianLoading"
+                      placeholder="Pilih PIC teknisi"
+                      class="w-full"
+                    />
+          </UFormField>
           <UFormField
             v-if="form.jenis_tugas === 'internal_use'"
             label="Divisi / Lokasi Internal"
             required
-            ><UInput v-model="form.lokasi_internal" class="w-full"
-          /></UFormField>
+          >
+                    <UInput
+                      v-model="form.lokasi_internal"
+                      class="w-full"
+                    />
+          </UFormField>
           <div
             v-if="form.jenis_tugas === 'terima_printer_baru'"
             class="grid gap-4"
           >
-            <UFormField label="Sumber / Pemasok" required
-              ><UInput v-model="form.sumber" class="w-full" /></UFormField
-            ><UFormField label="MP No" required
-              ><UInput v-model="form.new_mp_no" class="w-full" /></UFormField
-            ><UFormField label="Model" required
-              ><USelect
+            <UFormField
+              label="Sumber / Pemasok"
+              required
+            >
+                      <UInput
+                        v-model="form.sumber"
+                        class="w-full"
+                      />
+            </UFormField>
+                    <UFormField
+                      label="MP No"
+                      required
+                    >
+                      <UInput
+                        v-model="form.new_mp_no"
+                        class="w-full"
+                      />
+                    </UFormField>
+                    <UFormField
+                      label="Model"
+                      required
+                    >
+                      <USelect
                 v-model="form.new_model_id"
                 :items="
                   options.models.map((row) => ({
@@ -1212,39 +1338,140 @@ watch(
                 "
                 placeholder="Pilih model"
                 class="w-full"
-            /></UFormField>
+            />
+                    </UFormField>
           </div>
-          <div v-if="editing" class="space-y-3 border-t border-default pt-4">
+          <div
+            v-if="editing"
+            class="space-y-3 border-t border-default pt-4"
+          >
             <div class="flex flex-wrap items-center gap-2">
               <span class="text-sm font-medium">Status</span>
-              <UBadge color="neutral" variant="subtle">{{ editing.status }}</UBadge>
+              <UBadge
+                color="neutral"
+                variant="subtle"
+              >
+                {{ editing.status }}
+              </UBadge>
             </div>
           </div>
           </div>
-          <div v-else class="space-y-5">
+          </div>
+          <div
+            v-else-if="formTab === 'unit' && editing"
+            class="space-y-3"
+          >
+            <UCard
+              v-for="line in editing.surat_tugas_printer || []"
+              :key="line.id"
+            >
+              <div class="space-y-3">
+                <p class="font-semibold">{{ line.mp_no }}</p>
+                <div
+                  v-if="['progress', 'technician_completed'].includes(editing.status) && ['admin', 'teknisi'].includes(role) && resultForms[line.id]"
+                  class="grid gap-2"
+                >
+                  <UFormField
+                    label="Hasil Unit"
+                    required
+                  >
+                        <UInput
+                          v-model="resultForms[line.id].hasil"
+                          class="w-full"
+                        />
+                  </UFormField>
+                  <UFormField
+                    v-if="['qc', 'repair'].includes(editing.jenis_tugas)"
+                    label="Kondisi hasil"
+                  >
+                        <USelect
+                          v-model="resultForms[line.id].kondisi_hasil"
+                          :items="['ready', 'ready_with_condition', 'need_repair', 'unready', 'kanibal'].map((value) => ({ label: value, value }))"
+                          class="w-full"
+                        />
+                  </UFormField>
+                  <UFormField label="Alasan / keterangan">
+                        <UInput
+                          v-model="resultForms[line.id].alasan"
+                          class="w-full"
+                        />
+                  </UFormField>
+                </div>
+                <p
+                  v-else
+                  class="text-sm text-dimmed"
+                >
+                  {{ line.hasil || 'Belum ada hasil.' }}
+                </p>
+              </div>
+            </UCard>
+          </div>
+          <div
+            v-else
+            class="space-y-5"
+          >
             <div class="overflow-x-auto">
-              <UTable :data="displayedItems" :columns="formItemColumns">
+              <UTable
+                :data="displayedItems"
+                :columns="formItemColumns"
+              >
                 <template #jenis_barang-cell="{ row }">{{ row.original.jenis_barang === 'suku_cadang' ? 'Sparepart' : row.original.jenis_barang === 'printer' ? 'Printer' : 'Toner' }}</template>
                 <template #item-cell="{ row }">{{ formItemName(row.original) }}</template>
                 <template #gudang-cell="{ row }">{{ formItemWarehouse(row.original) }}</template>
                 <template #keterangan-cell="{ row }">{{ row.original.keterangan || '-' }}</template>
                 <template #actions-cell="{ row }">
-                  <UButton v-if="row.original.printer_id" type="button" size="xs" color="error" variant="ghost" icon="i-lucide-trash-2" aria-label="Hapus printer" @click="form.printer_ids = form.printer_ids.filter((id) => id !== row.original.printer_id)" />
-                  <UButton v-else-if="!row.original.existing && !row.original.fixed" type="button" size="xs" color="error" variant="ghost" icon="i-lucide-trash-2" aria-label="Hapus item" @click="removeFormItem(formItems.indexOf(row.original))" />
+                  <UButton
+                    v-if="row.original.printer_id"
+                    type="button"
+                    size="xs"
+                    color="error"
+                    variant="ghost"
+                    icon="i-lucide-trash-2"
+                    aria-label="Hapus printer"
+                    @click="form.printer_ids = form.printer_ids.filter((id) => id !== row.original.printer_id)"
+                  />
+                  <UButton
+                    v-else-if="!row.original.existing && !row.original.fixed"
+                    type="button"
+                    size="xs"
+                    color="error"
+                    variant="ghost"
+                    icon="i-lucide-trash-2"
+                    aria-label="Hapus item"
+                    @click="removeFormItem(formItems.indexOf(row.original))"
+                  />
                 </template>
-                <template #empty><div class="py-8 text-center text-sm text-dimmed">Belum ada item.</div></template>
+                <template #empty>
+                      <div class="py-8 text-center text-sm text-dimmed">Belum ada item.</div>
+                </template>
               </UTable>
             </div>
-            <UAlert v-if="!editing" color="info" variant="subtle" title="Toner dan Sparepart dapat ditambahkan setelah Surat Tugas dimulai" />
+            <UAlert
+              v-if="!editing"
+              color="info"
+              variant="subtle"
+              title="Toner dan Sparepart dapat ditambahkan setelah Surat Tugas dimulai"
+            />
             <div class="flex justify-end">
-              <UButton type="button" color="primary" variant="outline" @click="openAddItem">Tambah Item</UButton>
+              <UButton
+                v-if="editing?.status !== 'solved' && (form.jenis_tugas !== 'maintenance' || canAddFormItem)"
+                type="button"
+                color="primary"
+                variant="outline"
+                @click="openAddItem"
+              >
+                Tambah Item
+              </UButton>
             </div>
           </div>
             </div>
           </div>
           <div class="overflow-x-auto pb-1">
             <div class="ms-auto flex w-max items-center gap-2">
-            <div v-if="editing && nextWorkflowAction(editing)" class="flex w-44 shrink-0 items-center">
+            <div
+              v-if="editing && nextWorkflowAction(editing)"
+              class="flex w-44 shrink-0 items-center"
+            >
               <UButton
                 type="button"
                 color="primary"
@@ -1253,7 +1480,9 @@ watch(
                 :loading="saving"
                 :disabled="saving"
                 @click="action(nextWorkflowAction(editing)!, editing)"
-              >{{ workflowLabels[nextWorkflowAction(editing)!] }}</UButton>
+              >
+                {{ workflowLabels[nextWorkflowAction(editing)!] }}
+              </UButton>
               <UDropdownMenu
                 v-if="canAct('cancel', editing)"
                 :items="[{ label: 'Batalkan', icon: 'i-lucide-x', color: 'error' as const, onSelect: () => action('cancel', editing) }]"
@@ -1270,23 +1499,43 @@ watch(
                 />
               </UDropdownMenu>
             </div>
-            <div v-else-if="editing && canAct('cancel', editing)" class="flex w-44 shrink-0 items-center">
-              <UButton type="button" color="primary" variant="outline" class="min-w-0 flex-1 justify-center rounded-e-none" disabled>
+            <div
+              v-else-if="editing && canAct('cancel', editing)"
+              class="flex w-44 shrink-0 items-center"
+            >
+              <UButton
+                type="button"
+                color="primary"
+                variant="outline"
+                class="min-w-0 flex-1 justify-center rounded-e-none"
+                disabled
+              >
                 {{ completedWorkflowLabel(editing) }}
               </UButton>
               <UDropdownMenu
                 :items="[{ label: 'Batalkan', icon: 'i-lucide-x', color: 'error' as const, onSelect: () => action('cancel', editing) }]"
                 :content="{ align: 'end' }"
               >
-                <UButton type="button" icon="i-lucide-chevron-down" color="primary" variant="outline" class="-ms-px rounded-s-none" aria-label="Tampilkan aksi Batalkan" :disabled="saving" />
+                <UButton
+                  type="button"
+                  icon="i-lucide-chevron-down"
+                  color="primary"
+                  variant="outline"
+                  class="-ms-px rounded-s-none"
+                  aria-label="Tampilkan aksi Batalkan"
+                  :disabled="saving"
+                />
               </UDropdownMenu>
             </div>
             <UButton
+              v-if="editing?.status !== 'solved'"
               type="submit"
               class="w-44 shrink-0 justify-center"
               :loading="saving || (embedded && loading)"
-              :disabled="embedded && !selectedTicket"
-            >Simpan</UButton>
+              :disabled="!form.jenis_tugas || (embedded && !selectedTicket)"
+            >
+              Simpan
+            </UButton>
             </div>
           </div>
         </UForm>
@@ -1307,15 +1556,24 @@ watch(
             <USelect
               v-model="addItemKind"
               :items="[
-                { label: 'Printer', value: 'printer' },
+                ...(form.jenis_tugas === 'maintenance' ? [] : [{ label: 'Printer', value: 'printer' }]),
                 ...(canAddFormItem ? [{ label: 'Toner', value: 'toner' }, { label: 'Sparepart', value: 'suku_cadang' }] : []),
               ]"
               class="w-full"
               @update:model-value="formItem.item_id = ''"
             />
           </UFormField>
-          <UAlert v-if="addItemKind === 'printer' && form.jenis_tugas === 'terima_printer_baru'" color="info" variant="subtle" title="Printer baru diisi pada tab Detil" description="Isi MP No dan model printer baru pada tab Detil Surat Tugas." />
-          <UFormField v-else-if="addItemKind === 'printer'" label="Printer">
+          <UAlert
+            v-if="addItemKind === 'printer' && form.jenis_tugas === 'terima_printer_baru'"
+            color="info"
+            variant="subtle"
+            title="Printer baru diisi pada tab Detil"
+            description="Isi MP No dan model printer baru pada tab Detil Surat Tugas."
+          />
+          <UFormField
+            v-else-if="addItemKind === 'printer'"
+            label="Printer"
+          >
             <USelectMenu
               v-model="pendingPrinterIds"
               v-model:search-term="printerSearch"
@@ -1329,265 +1587,72 @@ watch(
               class="w-full"
             />
           </UFormField>
-          <div v-else class="grid gap-3 sm:grid-cols-2">
-            <UFormField label="Item" class="sm:col-span-2">
-              <USelect v-model="formItem.item_id" :items="formItemChoices.map((row) => ({ label: row.nama_toner || row.nama_suku_cadang, value: row.id }))" placeholder="Pilih item" class="w-full" />
+          <div
+            v-else
+            class="grid gap-3 sm:grid-cols-2"
+          >
+            <UFormField
+              label="Item"
+              class="sm:col-span-2"
+            >
+              <USelect
+                v-model="formItem.item_id"
+                :items="formItemChoices.map((row) => ({ label: row.nama_toner || row.nama_suku_cadang, value: row.id }))"
+                placeholder="Pilih item"
+                class="w-full"
+              />
             </UFormField>
-            <UFormField label="Gudang"><USelect v-model="formItem.gudang_id" :items="warehouseItems" placeholder="Pilih gudang" class="w-full" /></UFormField>
-            <UFormField label="Jumlah"><UInput v-model.number="formItem.jumlah_pakai" type="number" min="1" class="w-full" /></UFormField>
-            <UFormField label="Keterangan" class="sm:col-span-2"><UInput v-model="formItem.keterangan" class="w-full" /></UFormField>
+            <UFormField label="Gudang">
+              <USelect
+                v-model="formItem.gudang_id"
+                :items="warehouseItems"
+                placeholder="Pilih gudang"
+                class="w-full"
+              />
+            </UFormField>
+            <UFormField label="Jumlah">
+              <UInput
+                v-model.number="formItem.jumlah_pakai"
+                type="number"
+                min="1"
+                class="w-full"
+              />
+            </UFormField>
+            <UFormField
+              label="Keterangan"
+              class="sm:col-span-2"
+            >
+              <UInput
+                v-model="formItem.keterangan"
+                class="w-full"
+              />
+            </UFormField>
           </div>
-          <p v-if="errorMessage && addItemKind !== 'printer'" class="text-sm text-error">{{ errorMessage }}</p>
+          <p
+            v-if="errorMessage && addItemKind !== 'printer'"
+            class="text-sm text-error"
+          >
+            {{ errorMessage }}
+          </p>
           <div class="mt-auto flex justify-end gap-2 pt-4">
-            <UButton type="button" color="neutral" variant="ghost" @click="addItemOpen = false">Batal</UButton>
-            <UButton type="button" @click="confirmAddItem">Tambahkan</UButton>
+            <UButton
+              type="button"
+              color="neutral"
+              variant="ghost"
+              @click="addItemOpen = false"
+            >
+              Batal
+            </UButton>
+            <UButton
+              type="button"
+              @click="confirmAddItem"
+            >
+              Tambahkan
+            </UButton>
           </div>
         </div>
       </template>
     </UModal>
 
-    <UModal
-      v-if="!embedded"
-      v-model:open="detailOpen"
-      :title="detail?.nomor_surat_tugas || 'Detail Surat Tugas'"
-      :ui="{ content: 'sm:max-w-4xl' }"
-    >
-      <template #body
-        ><div v-if="detail" class="space-y-4">
-          <div class="flex flex-wrap gap-2">
-            <UBadge color="info" variant="subtle">{{
-              kinds[detail.jenis_tugas] || detail.jenis_pekerjaan
-            }}</UBadge
-            ><UBadge color="neutral" variant="subtle">{{
-              detail.status
-            }}</UBadge
-            ><span class="text-sm text-dimmed"
-              >{{ detail.tiket?.nomor_tiket || "Mandiri" }} ·
-              {{
-                detail.master_customer?.nama_customer || "Tanpa customer"
-              }}</span
-            >
-          </div>
-          <div class="flex gap-1 overflow-x-auto border-b border-default">
-            <UButton
-              v-for="item in [
-                { value: 'general', label: 'General' },
-                { value: 'unit', label: 'Unit Printer' },
-                { value: 'item', label: 'Item' },
-              ]"
-              :key="item.value"
-              size="sm"
-              :variant="tab === item.value ? 'soft' : 'ghost'"
-              @click="tab = item.value"
-              >{{ item.label }}</UButton
-            >
-          </div>
-          <div v-if="tab === 'general'" class="space-y-4">
-            <div class="grid gap-3 sm:grid-cols-2">
-              <UCard
-                ><p class="text-sm text-dimmed">PIC Teknisi</p>
-                <p class="font-medium text-highlighted">
-                  {{
-                    detail.teknisi_surat_tugas?.[0]?.master_pengguna?.name ||
-                    detail.teknisi_surat_tugas?.[0]?.master_pengguna
-                      ?.nama_lengkap ||
-                    "-"
-                  }}
-                </p></UCard
-              ><UCard
-                ><p class="text-sm text-dimmed">Konfirmasi</p>
-                <p class="text-sm text-highlighted">
-                  Keluar: {{ detail.konfirmasi_keluar_pada ? "Ya" : "Belum" }} ·
-                  Serah: {{ detail.konfirmasi_serah_pada ? "Ya" : "Belum" }} ·
-                  Terima: {{ detail.konfirmasi_terima_pada ? "Ya" : "Belum" }}
-                </p></UCard
-              >
-            </div>
-            <div
-              v-if="
-                !detail.teknisi_surat_tugas?.length &&
-                detail.status === 'pending' &&
-                ['admin', 'kepala_teknisi'].includes(role)
-              "
-              class="flex gap-2"
-            >
-              <USelectMenu
-                v-model="form.pic_teknisi_id"
-                v-model:search-term="technicianSearch"
-                :items="technicianItems"
-                value-key="value"
-                ignore-filter
-                :search-input="{ placeholder: 'Ketik untuk mencari teknisi' }"
-                :loading="technicianLoading"
-                placeholder="Pilih teknisi"
-                class="w-full"
-              /><UButton color="neutral" variant="outline" @click="assign"
-                >Assign PIC</UButton
-              >
-            </div>
-            <UFormField label="Hasil pekerjaan"
-              ><UTextarea v-model="form.hasil" class="w-full"
-            /></UFormField>
-            <div class="flex flex-wrap gap-2">
-              <UButton
-                v-for="name in [
-                  'start',
-                  'ready-to-print',
-                  'keluar',
-                  'serah',
-                  'terima',
-                  'selesai',
-                  'resolve',
-                  'cancel',
-                ]"
-                v-show="canAct(name)"
-                :key="name"
-                size="sm"
-                :color="name === 'cancel' ? 'error' : 'primary'"
-                :loading="saving"
-                @click="action(name)"
-                >{{
-                  {
-                    start: "Mulai",
-                    "ready-to-print": "Siap Cetak",
-                    keluar: "Konfirmasi Keluar",
-                    serah: "Konfirmasi Serah",
-                    terima: "Konfirmasi Terima",
-                    selesai: "Selesai Pekerjaan",
-                    resolve: "Resolve",
-                    cancel: "Batalkan",
-                  }[name]
-                }}</UButton
-              >
-            </div>
-          </div>
-          <div v-else-if="tab === 'unit'" class="space-y-3">
-            <UCard
-              v-for="line in detail.surat_tugas_printer || []"
-              :key="line.id"
-              ><div class="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <p class="font-semibold text-highlighted">{{ line.mp_no }}</p>
-                  <p class="text-sm text-dimmed">
-                    {{ line.peran }} ·
-                    {{ line.serial_number || "Serial belum diisi" }}
-                  </p>
-                </div>
-                <div
-                  v-if="
-                    [
-                      'progress',
-                      'ready_to_print',
-                      'technician_completed',
-                    ].includes(detail.status) &&
-                    ['admin', 'teknisi'].includes(role)
-                  "
-                  class="grid min-w-64 gap-2"
-                >
-                  <UInput
-                    v-model="resultForms[line.id].hasil"
-                    placeholder="Hasil"
-                  /><USelect
-                    v-if="['qc', 'repair'].includes(detail.jenis_tugas)"
-                    v-model="resultForms[line.id].kondisi_hasil"
-                    :items="
-                      [
-                        'ready',
-                        'ready_with_condition',
-                        'need_repair',
-                        'unready',
-                        'kanibal',
-                      ].map((value) => ({ label: value, value }))
-                    "
-                    placeholder="Kondisi hasil"
-                  /><UInput
-                    v-model="resultForms[line.id].alasan"
-                    placeholder="Alasan / keterangan"
-                  /><UButton size="sm" @click="saveResult(line)"
-                    >Simpan Hasil</UButton
-                  >
-                </div>
-                <p v-else class="text-sm text-dimmed">
-                  {{ line.hasil || "Belum ada hasil."
-                  }}{{ line.kondisi_hasil ? ` · ${line.kondisi_hasil}` : "" }}
-                </p>
-              </div></UCard
-            >
-            <div
-              v-if="!detail.surat_tugas_printer?.length"
-              class="py-8 text-center text-sm text-dimmed"
-            >
-              Tidak ada unit printer.
-            </div>
-          </div>
-          <div v-else class="space-y-4">
-            <UTable
-              :data="detail.pemakaian_barang_surat_tugas || []"
-              :columns="[
-                { accessorKey: 'jenis_barang', header: 'Jenis' },
-                { accessorKey: 'jumlah_pakai', header: 'Jumlah' },
-                { accessorKey: 'master_gudang', header: 'Gudang' },
-                { id: 'actions', header: '' },
-              ]"
-              ><template #master_gudang-cell="{ row }">{{
-                row.original.master_gudang?.nama_gudang || "-"
-              }}</template
-              ><template #actions-cell="{ row }"
-                ><UButton
-                  v-if="
-                    ['admin', 'teknisi'].includes(role) &&
-                    ['progress', 'ready_to_print'].includes(detail.status)
-                  "
-                  size="xs"
-                  color="error"
-                  variant="ghost"
-                  icon="i-lucide-trash-2"
-                  aria-label="Hapus item"
-                  @click="deleteItem(row.original)" /></template
-              ><template #empty
-                ><div class="py-8 text-center text-sm text-dimmed">
-                  Belum ada item.
-                </div></template
-              ></UTable
-            ><UForm
-              v-if="
-                ['admin', 'teknisi'].includes(role) &&
-                ['progress', 'ready_to_print'].includes(detail.status)
-              "
-              :state="itemForm"
-              class="grid gap-3 sm:grid-cols-2"
-              @submit="addItem"
-              ><USelect
-                v-model="itemForm.jenis_barang"
-                :items="[
-                  { label: 'Toner', value: 'toner' },
-                  { label: 'Sparepart', value: 'suku_cadang' },
-                ]"
-              /><USelect
-                v-model="itemForm.item_id"
-                :items="
-                  itemChoices.map((row) => ({
-                    label: row.nama_toner || row.nama_suku_cadang,
-                    value: row.id,
-                  }))
-                "
-                placeholder="Pilih item"
-              /><USelect
-                v-model="itemForm.gudang_id"
-                :items="warehouseItems"
-                placeholder="Pilih gudang"
-              /><UInput
-                v-model.number="itemForm.jumlah_pakai"
-                type="number"
-                min="1"
-              /><UInput
-                v-model="itemForm.keterangan"
-                placeholder="Catatan"
-              /><UButton type="submit">Tambah Item</UButton></UForm
-            >
-          </div>
-        </div></template
-      >
-    </UModal>
   </div>
 </template>

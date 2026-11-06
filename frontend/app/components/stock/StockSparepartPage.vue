@@ -101,29 +101,194 @@ onMounted(async () => { await Promise.all([loadRows(), loadWarehouses()]) })
 
 <template>
   <div class="space-y-6">
-    <UPageHeader title="Stok Sparepart" description="Pantau ketersediaan sparepart di setiap gudang." />
-    <UAlert v-if="errorMessage" color="error" variant="subtle" :title="errorMessage" />
-    <UAlert v-if="successMessage" color="success" variant="subtle" :title="successMessage" />
-    <UAlert v-if="!canManageStock" color="info" variant="subtle" title="Mode lihat saja: role Anda tidak memiliki akses mutasi stok." />
+    <UPageHeader
+      title="Stok Sparepart"
+      description="Pantau ketersediaan sparepart di setiap gudang."
+    />
+    <UAlert
+      v-if="errorMessage"
+      color="error"
+      variant="subtle"
+      :title="errorMessage"
+    />
+    <UAlert
+      v-if="successMessage"
+      color="success"
+      variant="subtle"
+      :title="successMessage"
+    />
+    <UAlert
+      v-if="!canManageStock"
+      color="info"
+      variant="subtle"
+      title="Mode lihat saja: role Anda tidak memiliki akses mutasi stok."
+    />
     <UCard>
       <div class="flex flex-col gap-3 lg:flex-row lg:items-center">
-        <UInput v-model="search" icon="i-lucide-search" placeholder="Cari gudang, kode, atau nama sparepart" class="w-full lg:max-w-xl" />
-        <div class="flex items-center gap-2 lg:ms-auto"><UButton color="neutral" variant="outline" icon="i-lucide-refresh-cw" aria-label="Refresh data" :loading="loading" @click="loadRows" /><UButton icon="i-lucide-plus" label="Tambah Stok" :disabled="!canManageStock" @click="openMutation('masuk')" /></div>
+        <UInput
+          v-model="search"
+          icon="i-lucide-search"
+          placeholder="Cari gudang, kode, atau nama sparepart"
+          class="w-full lg:max-w-xl"
+        />
+        <div class="flex items-center gap-2 lg:ms-auto">
+          <UButton
+            color="neutral"
+            variant="outline"
+            icon="i-lucide-refresh-cw"
+            aria-label="Refresh data"
+            :loading="loading"
+            @click="loadRows"
+          />
+          <UButton
+            icon="i-lucide-plus"
+            label="Tambah Stok"
+            :disabled="!canManageStock"
+            @click="openMutation('masuk')"
+          />
+        </div>
       </div>
     </UCard>
     <UCard>
-      <div class="mb-4 flex flex-wrap items-center justify-between gap-2"><div><h2 class="font-semibold text-highlighted">Daftar Stok Sparepart</h2><p class="text-sm text-dimmed">{{ total }} item ditemukan</p></div><USelect v-model="pageSize" :items="[5, 10, 25].map(value => ({ label: `${value} baris`, value }))" class="w-32" /></div>
-      <UTable :data="paginatedRows" :columns="columns" :loading="loading">
+      <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h2 class="font-semibold text-highlighted">Daftar Stok Sparepart</h2>
+          <p class="text-sm text-dimmed">{{ total }} item ditemukan</p>
+        </div>
+        <USelect
+          v-model="pageSize"
+          :items="[5, 10, 25].map(value => ({ label: `${value} baris`, value }))"
+          class="w-32"
+        />
+      </div>
+      <UTable
+        :data="paginatedRows"
+        :columns="columns"
+        :loading="loading"
+      >
         <template #gudang-cell="{ row }">{{ row.original.gudang }}</template>
-        <template #sparepart-cell="{ row }"><div><p class="font-medium text-highlighted">{{ row.original.sparepart }}</p><p class="text-xs text-dimmed">{{ row.original.master_suku_cadang?.kode_suku_cadang || '-' }}</p></div></template>
-        <template #jumlah_tersedia-cell="{ row }"><UBadge color="success" variant="subtle">{{ row.original.jumlah_tersedia }}</UBadge></template>
-        <template #actions-cell="{ row }"><div class="flex flex-wrap gap-1"><UButton size="xs" color="success" variant="ghost" icon="i-lucide-plus" aria-label="Tambah stok" :disabled="!canManageStock || row.original.belum_ditempatkan" @click="openMutation('masuk', row.original)" /><UButton size="xs" color="warning" variant="ghost" icon="i-lucide-minus" aria-label="Kurangi stok" :disabled="!canManageStock || row.original.belum_ditempatkan || Number(row.original.jumlah_tersedia) <= 0" @click="openMutation('keluar', row.original)" /></div></template>
-        <template #empty><div class="py-8 text-center text-sm text-dimmed">{{ loading ? 'Memuat stok...' : 'Belum ada stok sparepart.' }}</div></template>
+        <template #sparepart-cell="{ row }">
+          <div>
+            <p class="font-medium text-highlighted">{{ row.original.sparepart }}</p>
+            <p class="text-xs text-dimmed">{{ row.original.master_suku_cadang?.kode_suku_cadang || '-' }}</p>
+          </div>
+        </template>
+        <template #jumlah_tersedia-cell="{ row }">
+          <UBadge
+            color="success"
+            variant="subtle"
+          >
+            {{ row.original.jumlah_tersedia }}
+          </UBadge>
+        </template>
+        <template #actions-cell="{ row }">
+          <div class="flex flex-wrap gap-1">
+            <UButton
+              size="xs"
+              color="success"
+              variant="ghost"
+              icon="i-lucide-plus"
+              aria-label="Tambah stok"
+              :disabled="!canManageStock || row.original.belum_ditempatkan"
+              @click="openMutation('masuk', row.original)"
+            />
+            <UButton
+              size="xs"
+              color="warning"
+              variant="ghost"
+              icon="i-lucide-minus"
+              aria-label="Kurangi stok"
+              :disabled="!canManageStock || row.original.belum_ditempatkan || Number(row.original.jumlah_tersedia) <= 0"
+              @click="openMutation('keluar', row.original)"
+            />
+          </div>
+        </template>
+        <template #empty>
+          <div class="py-8 text-center text-sm text-dimmed">{{ loading ? 'Memuat stok...' : 'Belum ada stok sparepart.' }}</div>
+        </template>
       </UTable>
-      <div class="mt-4 flex justify-end"><UPagination v-model:page="page" :page-count="pageSize" :total="total" /></div>
+      <div class="mt-4 flex justify-end">
+        <UPagination
+          v-model:page="page"
+          :page-count="pageSize"
+          :total="total"
+        />
+      </div>
     </UCard>
-    <UModal v-model:open="modalOpen" :title="form.jenis_mutasi === 'masuk' ? 'Tambah Stok Sparepart' : 'Kurangi Stok Sparepart'">
-      <template #body><UForm :state="form" class="space-y-4" @submit="saveMutation"><UFormField label="Barang Sparepart" name="suku_cadang_id" required><USelect v-model="form.suku_cadang_id" :items="sparepartOptions" placeholder="Pilih sparepart" class="w-full" /></UFormField><UFormField :label="form.jenis_mutasi === 'masuk' ? 'Gudang Tujuan' : 'Gudang Asal'" name="gudang" required><USelect v-if="form.jenis_mutasi === 'masuk'" v-model="form.gudang_tujuan_id" :items="warehouseOptions" placeholder="Pilih gudang" class="w-full" /><USelect v-else v-model="form.gudang_asal_id" :items="warehouseOptions" placeholder="Pilih gudang" class="w-full" /></UFormField><UFormField label="Jumlah" name="jumlah" required><UInput v-model="form.jumlah" type="number" min="1" step="1" class="w-full" /></UFormField><UFormField label="Keterangan" name="keterangan"><UTextarea v-model="form.keterangan" placeholder="Opsional" class="w-full" /></UFormField><UButton type="submit" block :loading="saving">Simpan dan Posting</UButton></UForm></template>
+    <UModal
+      v-model:open="modalOpen"
+      :title="form.jenis_mutasi === 'masuk' ? 'Tambah Stok Sparepart' : 'Kurangi Stok Sparepart'"
+    >
+      <template #body>
+        <UForm
+          :state="form"
+          class="space-y-4"
+          @submit="saveMutation"
+        >
+          <UFormField
+            label="Barang Sparepart"
+            name="suku_cadang_id"
+            required
+          >
+            <USelect
+              v-model="form.suku_cadang_id"
+              :items="sparepartOptions"
+              placeholder="Pilih sparepart"
+              class="w-full"
+            />
+          </UFormField>
+          <UFormField
+            :label="form.jenis_mutasi === 'masuk' ? 'Gudang Tujuan' : 'Gudang Asal'"
+            name="gudang"
+            required
+          >
+            <USelect
+              v-if="form.jenis_mutasi === 'masuk'"
+              v-model="form.gudang_tujuan_id"
+              :items="warehouseOptions"
+              placeholder="Pilih gudang"
+              class="w-full"
+            />
+            <USelect
+              v-else
+              v-model="form.gudang_asal_id"
+              :items="warehouseOptions"
+              placeholder="Pilih gudang"
+              class="w-full"
+            />
+          </UFormField>
+          <UFormField
+            label="Jumlah"
+            name="jumlah"
+            required
+          >
+            <UInput
+              v-model="form.jumlah"
+              type="number"
+              min="1"
+              step="1"
+              class="w-full"
+            />
+          </UFormField>
+          <UFormField
+            label="Keterangan"
+            name="keterangan"
+          >
+            <UTextarea
+              v-model="form.keterangan"
+              placeholder="Opsional"
+              class="w-full"
+            />
+          </UFormField>
+          <UButton
+            type="submit"
+            block
+            :loading="saving"
+          >
+            Simpan dan Posting
+          </UButton>
+        </UForm>
+      </template>
     </UModal>
   </div>
 </template>

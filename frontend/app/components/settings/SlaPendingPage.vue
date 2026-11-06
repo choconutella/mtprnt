@@ -104,7 +104,8 @@ onMounted(loadSettings);
                 step="1"
                 class="w-full"
                 :disabled="loading || saving"
-              /><span class="text-sm text-dimmed">jam</span>
+              />
+              <span class="text-sm text-dimmed">jam</span>
             </div>
           </UFormField>
           <UButton

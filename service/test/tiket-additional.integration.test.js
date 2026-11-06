@@ -130,7 +130,6 @@ test("inbound bulk, QC/Repair, Internal Use, cancellation, maintenance, and Retu
     pic_teknisi_id: tech.id, printer: [line(imported[0])]
   }, 201);
   await good(head, `/surat-tugas/${internal.id}/start`, "POST", {});
-  await good(technician, `/surat-tugas/${internal.id}/ready-to-print`, "POST", {});
   await good(warehouse, `/surat-tugas/${internal.id}/keluar`, "POST", {});
   await good(technician, `/surat-tugas/${internal.id}/serah`, "POST", {});
   await good(technician, `/surat-tugas/${internal.id}/selesai`, "POST", {});
@@ -152,7 +151,6 @@ test("inbound bulk, QC/Repair, Internal Use, cancellation, maintenance, and Retu
     pic_teknisi_id: tech.id, printer: [line(customerUnit)]
   }, 201);
   await good(head, `/surat-tugas/${delivery.id}/start`, "POST", {});
-  await good(technician, `/surat-tugas/${delivery.id}/ready-to-print`, "POST", {});
   await good(warehouse, `/surat-tugas/${delivery.id}/keluar`, "POST", {});
   await good(technician, `/surat-tugas/${delivery.id}/serah`, "POST", {});
   await good(technician, `/surat-tugas/${delivery.id}/selesai`, "POST", {});

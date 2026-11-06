@@ -65,7 +65,6 @@ test("TONER PURCHASE posts once under concurrent Warehouse confirmation", { skip
     pic_teknisi_id: tech.id, printer: []
   }, 201);
   await good(head, `/surat-tugas/${order.id}/start`, "POST", {});
-  await good(technician, `/surat-tugas/${order.id}/ready-to-print`, "POST", {});
 
   const attempts = await Promise.all([
     request(warehouse, `/surat-tugas/${order.id}/keluar`, "POST", {}),
@@ -114,7 +113,6 @@ test("TRIAL converts to KONTRAK and TUKAR receives the old unit separately", { s
     printer: [{ printer_id: unitA.id, mp_no: unitA.mp_no, peran: "utama" }]
   }, 201);
   await good(head, `/surat-tugas/${trialSt.id}/start`, "POST", {});
-  await good(technician, `/surat-tugas/${trialSt.id}/ready-to-print`, "POST", {});
   await good(warehouse, `/surat-tugas/${trialSt.id}/keluar`, "POST", {});
   await good(technician, `/surat-tugas/${trialSt.id}/serah`, "POST", {});
   await good(technician, `/surat-tugas/${trialSt.id}/selesai`, "POST", {});
@@ -133,7 +131,6 @@ test("TRIAL converts to KONTRAK and TUKAR receives the old unit separately", { s
     pic_teknisi_id: tech.id, printer: [{ printer_id: unitA.id, mp_no: unitA.mp_no, peran: "utama" }]
   }, 201);
   await good(head, `/surat-tugas/${contractSt.id}/start`, "POST", {});
-  await good(technician, `/surat-tugas/${contractSt.id}/ready-to-print`, "POST", {});
   await good(technician, `/surat-tugas/${contractSt.id}/serah`, "POST", {});
   await good(technician, `/surat-tugas/${contractSt.id}/selesai`, "POST", {});
   await good(head, `/surat-tugas/${contractSt.id}/resolve`, "POST", {});
@@ -158,7 +155,6 @@ test("TRIAL converts to KONTRAK and TUKAR receives the old unit separately", { s
     printer: [{ printer_id: unitB.id, mp_no: unitB.mp_no, peran: "utama" }]
   }, 201);
   await good(head, `/surat-tugas/${outbound.id}/start`, "POST", {});
-  await good(technician, `/surat-tugas/${outbound.id}/ready-to-print`, "POST", {});
   await good(warehouse, `/surat-tugas/${outbound.id}/keluar`, "POST", {});
   await good(technician, `/surat-tugas/${outbound.id}/serah`, "POST", {});
   await good(technician, `/surat-tugas/${outbound.id}/selesai`, "POST", {});
@@ -194,7 +190,6 @@ test("TRIAL converts to KONTRAK and TUKAR receives the old unit separately", { s
     pic_teknisi_id: tech.id, printer: [{ printer_id: unitC.id, mp_no: unitC.mp_no, peran: "pengganti" }]
   }, 201);
   await good(head, `/surat-tugas/${backupOut.id}/start`, "POST", {});
-  await good(technician, `/surat-tugas/${backupOut.id}/ready-to-print`, "POST", {});
   await good(warehouse, `/surat-tugas/${backupOut.id}/keluar`, "POST", {});
   await good(technician, `/surat-tugas/${backupOut.id}/serah`, "POST", {});
   await good(technician, `/surat-tugas/${backupOut.id}/selesai`, "POST", {});

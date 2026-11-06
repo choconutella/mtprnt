@@ -82,7 +82,6 @@ Status yang perlu ditangani UI: `400`, `401`, `403`, `404`, `405`, `409`, `422`,
 | POST | `/surat-tugas/:id/start` | Role | Mulai pekerjaan |
 | POST | `/surat-tugas/:id/pemakaian` | Role | Catat pemakaian barang |
 | DELETE | `/surat-tugas/:id/pemakaian/:pemakaianId` | Role | Hapus pemakaian |
-| POST | `/surat-tugas/:id/ready-to-print` | Role | Siap cetak |
 | POST | `/surat-tugas/:id/selesai-teknisi` | Role | Teknisi selesai |
 | POST | `/surat-tugas/:id/validasi-warehouse` | Role | Validasi warehouse |
 | POST | `/surat-tugas/:id/ajukan` | Role | Ajukan surat tugas |
@@ -91,7 +90,11 @@ Status yang perlu ditangani UI: `400`, `401`, `403`, `404`, `405`, `409`, `422`,
 
 ## Workflow surat tugas baru
 
-`POST /surat-tugas`, `POST /surat-tugas/:id/start`, `POST /surat-tugas/:id/assign`, `POST /surat-tugas/:id/ready-to-print`, `POST /surat-tugas/:id/keluar`, `POST /surat-tugas/:id/serah`, `POST /surat-tugas/:id/terima`, `PUT /surat-tugas/:id/printer/:lineId/hasil`, `POST /surat-tugas/:id/selesai`, `POST /surat-tugas/:id/resolve`, dan `POST /surat-tugas/:id/cancel` tersedia pada service. Karena dua router dipasang pada prefix yang sama, frontend wajib memverifikasi response/status aktual saat mengintegrasikan aksi yang overlap.
+`PUT /surat-tugas/:id` pada ST baru menyimpan `hasil` pekerjaan selama ST belum ditutup. Field relasi/jenis yang dikirim oleh form harus sama dengan nilai tersimpan; perubahan field tersebut ditolak dengan 422. Hasil per unit tetap disimpan melalui `PUT /surat-tugas/:id/printer/:lineId/hasil`.
+
+`POST /surat-tugas`, `POST /surat-tugas/:id/start`, `POST /surat-tugas/:id/assign`, `POST /surat-tugas/:id/keluar`, `POST /surat-tugas/:id/serah`, `POST /surat-tugas/:id/terima`, `PUT /surat-tugas/:id/printer/:lineId/hasil`, `POST /surat-tugas/:id/selesai`, `POST /surat-tugas/:id/resolve`, dan `POST /surat-tugas/:id/cancel` tersedia pada service. Karena dua router dipasang pada prefix yang sama, frontend wajib memverifikasi response/status aktual saat mengintegrasikan aksi yang overlap.
+
+Untuk `POST /surat-tugas` dengan `jenis_tugas: "maintenance"` tanpa `tiket_id` (Maintenance gudang), `gudang_id`, `pic_teknisi_id`, dan minimal satu unit pada `printer` wajib diisi. `account_id` dan `customer_id` harus kosong/null. Setiap unit harus memiliki `printer_id` serta `mp_no` yang cocok dan berada di Gudang (`lokasi_jenis: "gudang"`, `gudang_id` sama dengan pilihan). Ketidakcocokan lokasi/relasi menghasilkan 422. Maintenance yang berasal dari Tiket tetap memakai Account/Customer dan validasi lokasi customer sesuai Tiket. `PUT /surat-tugas/:id` menerima pembaruan ST Maintenance gudang tanpa Account/Customer; relasi unit pada `surat_tugas_printer` tetap dipertahankan.
 
 ## Audit, import, dan pengaturan
 

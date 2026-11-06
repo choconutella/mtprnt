@@ -146,8 +146,11 @@ onMounted(() => loadSettings());
     />
     <UCard>
       <div class="flex flex-wrap items-end gap-3">
-        <UFormField label="Pilih Role" class="w-56"
-          ><USelect
+        <UFormField
+          label="Pilih Role"
+          class="w-56"
+        >
+          <USelect
             v-model="selectedRole"
             :items="
               roles.map((role) => ({ label: roleLabel(role), value: role }))
@@ -155,17 +158,22 @@ onMounted(() => loadSettings());
             class="w-full"
             :disabled="loading || saving"
             @update:model-value="changeRole"
-        /></UFormField>
-        <UFormField label="Filter Modul" class="min-w-64 flex-1"
-          ><UInput
+        />
+        </UFormField>
+        <UFormField
+          label="Filter Modul"
+          class="min-w-64 flex-1"
+        >
+          <UInput
             v-model="moduleSearch"
             icon="i-lucide-search"
             placeholder="Semua modul"
             class="w-full"
-        /></UFormField>
+          />
+        </UFormField>
         <div class="text-sm text-dimmed sm:ms-auto">
-          <span class="block">Ringkasan Akses</span
-          ><span class="font-medium text-highlighted">{{
+          <span class="block">Ringkasan Akses</span>
+          <span class="font-medium text-highlighted">{{
             isAdmin
               ? "Admin memiliki akses penuh."
               : `${roleLabel(selectedRole)} memiliki ${viewableModules} modul yang bisa dilihat.`
@@ -186,11 +194,13 @@ onMounted(() => loadSettings());
         :columns="permissionColumns"
         :loading="loading"
       >
-        <template #modul-cell="{ row }"
-          ><span class="font-medium text-highlighted">{{
-            moduleLabel(row.original.modul)
-          }}</span></template
+        <template
+          #modul-cell="{ row }"
         >
+          <span class="font-medium text-highlighted">{{
+            moduleLabel(row.original.modul)
+          }}</span>
+        </template>
         <template
           v-for="action in actions"
           :key="action"
@@ -202,11 +212,13 @@ onMounted(() => loadSettings());
             :aria-label="`${actionLabel(action)} ${moduleLabel(row.original.modul)}`"
           />
         </template>
-        <template #empty
-          ><div class="py-10 text-center text-sm text-dimmed">
-            {{ loading ? "Memuat permission..." : "Modul tidak ditemukan." }}
-          </div></template
+        <template
+          #empty
         >
+          <div class="py-10 text-center text-sm text-dimmed">
+            {{ loading ? "Memuat permission..." : "Modul tidak ditemukan." }}
+          </div>
+        </template>
       </UTable>
     </UCard>
   </div>
