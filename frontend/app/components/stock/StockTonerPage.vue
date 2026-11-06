@@ -53,7 +53,6 @@ const columns = [
   { accessorKey: 'gudang', header: 'Gudang' },
   { accessorKey: 'toner', header: 'Barang' },
   { accessorKey: 'jumlah_tersedia', header: 'Tersedia' },
-  { accessorKey: 'jumlah_dicadangkan', header: 'Cadangan' },
   { id: 'actions', header: 'Aksi' }
 ]
 
@@ -163,7 +162,6 @@ onMounted(async () => { await Promise.all([loadRows(), loadWarehouses()]) })
         <template #gudang-cell="{ row }">{{ row.original.gudang }}</template>
         <template #toner-cell="{ row }"><div><p class="font-medium text-highlighted">{{ row.original.toner }}</p><p class="text-xs text-dimmed">{{ row.original.master_toner?.kode_toner || '-' }}</p></div></template>
         <template #jumlah_tersedia-cell="{ row }"><UBadge color="success" variant="subtle">{{ row.original.jumlah_tersedia }}</UBadge></template>
-        <template #jumlah_dicadangkan-cell="{ row }">{{ row.original.jumlah_dicadangkan }}</template>
         <template #actions-cell="{ row }"><div class="flex flex-wrap gap-1"><UButton size="xs" color="success" variant="ghost" icon="i-lucide-plus" aria-label="Tambah stok" :disabled="!canManageStock || row.original.belum_ditempatkan" @click="openMutation('masuk', row.original)" /><UButton size="xs" color="warning" variant="ghost" icon="i-lucide-minus" aria-label="Kurangi stok" :disabled="!canManageStock || row.original.belum_ditempatkan || Number(row.original.jumlah_tersedia) <= 0" @click="openMutation('keluar', row.original)" /></div></template>
         <template #empty><div class="py-8 text-center text-sm text-dimmed">{{ loading ? 'Memuat stok...' : 'Belum ada stok toner.' }}</div></template>
       </UTable>

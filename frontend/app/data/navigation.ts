@@ -34,10 +34,7 @@ export const navigationGroups: NavigationGroup[] = [
       ] },
       { label: 'Toner', icon: 'i-lucide-boxes', to: '/master/toner' },
       { label: 'Sparepart', icon: 'i-lucide-wrench', to: '/master/sparepart' },
-      { label: 'Lokasi', icon: 'i-lucide-box', children: [
-        { label: 'Master Gudang', icon: 'i-lucide-box', to: '/master/gudang' },
-        { label: 'Lokasi Customer', icon: 'i-lucide-building-2', to: '/master/lokasi-customer' }
-      ] },
+      { label: 'Master Gudang', icon: 'i-lucide-box', to: '/master/gudang' },
       { label: 'User', icon: 'i-lucide-user-round', to: '/master/pengguna' }
     ] }
   ] },

@@ -5,6 +5,12 @@ const { request, message } = useServiceApi()
 const rows = ref<Row[]>([])
 const categories = ref<Row[]>([])
 const models = ref<Row[]>([])
+const selectedModel = ref<Row | null>(null)
+const modelSearch = ref('')
+const modelLoading = ref(false)
+const modelError = ref('')
+let modelSearchTimer: ReturnType<typeof setTimeout> | undefined
+let modelRequestId = 0
 const warehouses = ref<Row[]>([])
 const technicians = ref<Row[]>([])
 const summary = ref({ available: 0, reserved: 0, issued: 0, installed: 0 })
@@ -41,11 +47,14 @@ const quickCategoryError = ref('')
 const quickCategory = reactive({ kode_kategori: '', nama_kategori: '' })
 
 const categoryOptions = computed(() => [...categories.value.filter(item => item.aktif).map(item => ({ label: `${item.kode_kategori} — ${item.nama_kategori}`, value: item.id })), { label: '+ Buat Kategori', value: createCategoryValue }])
-const modelOptions = computed(() => [...models.value.filter(item => item.aktif).map(item => ({ label: `${item.merek} — ${item.nama_model}`, value: item.id })), { label: '+ Buat Model', value: createModelValue }])
+const modelOptions = computed(() => [...models.value.concat(selectedModel.value && !models.value.some(item => item.id === selectedModel.value?.id) ? [selectedModel.value] : []).filter(item => item.aktif || item.id === form.model_id).map(item => {
+  const category = item.master_printer_kategori?.nama_kategori || categories.value.find(category => category.id === item.kategori_id)?.nama_kategori || '-'
+  return { label: `${item.merek} - ${item.nama_model} (${category})`, value: item.id }
+}), { label: '+ Buat Model', value: createModelValue }])
 const warehouseOptions = computed(() => warehouses.value.filter(item => item.aktif).map(item => ({ label: `${item.kode_gudang} — ${item.nama_gudang}`, value: item.id })))
 const warehouseCreateOptions = computed(() => [...warehouseOptions.value, { label: '+ Buat Gudang', value: createWarehouseValue }])
 const technicianOptions = computed(() => technicians.value.filter(item => item.role === 'teknisi' && item.active).map(item => ({ label: `${item.user_id} — ${item.name}`, value: item.id })))
-const modelSelection = computed({ get: () => form.model_id, set: (value: string) => { if (value === createModelValue) openQuickModel(); else form.model_id = value } })
+const modelSelection = computed({ get: () => form.model_id, set: (value: string) => { if (value === createModelValue) openQuickModel(); else { form.model_id = value; selectedModel.value = models.value.find(item => item.id === value) || selectedModel.value } } })
 const warehouseSelection = computed({ get: () => form.gudang_id, set: (value: string) => { if (value === createWarehouseValue) openQuickWarehouse(); else form.gudang_id = value } })
 const quickCategorySelection = computed({ get: () => quickModel.kategori_id, set: (value: string) => { if (value === createCategoryValue) openQuickCategory(); else quickModel.kategori_id = value } })
 const searchKeywords = computed(() => search.value.split(',').map(keyword => keyword.trim().toLocaleLowerCase()).filter(Boolean))
@@ -109,13 +118,11 @@ async function loadRows() {
 
 async function loadLookups() {
   try {
-    const [categoryResponse, modelResponse, warehouseResponse] = await Promise.all([
+    const [categoryResponse, warehouseResponse] = await Promise.all([
       request<{ data: { items: Row[] } }>('/printer-kategori?halaman=1&batas=100'),
-      request<{ data: { items: Row[] } }>('/printer-model?halaman=1&batas=100'),
       request<{ data: { items: Row[] } }>('/gudang?halaman=1&batas=100')
     ])
     categories.value = categoryResponse.data.items
-    models.value = modelResponse.data.items
     warehouses.value = warehouseResponse.data.items
   } catch (error) {
     errorMessage.value = message(error, 'Filter printer gagal dimuat.')
@@ -123,6 +130,22 @@ async function loadLookups() {
 }
 
 function resetPage() { page.value = 1 }
+
+async function loadModels(query = '') {
+  const requestId = ++modelRequestId
+  modelLoading.value = true
+  modelError.value = ''
+  try {
+    const params = new URLSearchParams({ halaman: '1', batas: '20' })
+    if (query.trim()) params.set('cari', query.trim())
+    const response = await request<{ data: { items: Row[] } }>(`/printer-model?${params}`)
+    if (requestId === modelRequestId) models.value = response.data.items
+  } catch (error) {
+    if (requestId === modelRequestId) modelError.value = message(error, 'Pilihan model gagal dimuat.')
+  } finally {
+    if (requestId === modelRequestId) modelLoading.value = false
+  }
+}
 
 function resetForm() {
   Object.assign(form, { mp_no: '', serial_number: '', model_id: '', gudang_id: '', tanggal_pembelian: '', tanggal_maintenance_berikutnya: '', interval_maintenance_bulan: null, keterangan: '' })
@@ -168,6 +191,7 @@ async function createQuickModel() {
   try {
     const response = await request<{ data: Row }>('/printer-model', { method: 'POST', body: { kategori_id: quickModel.kategori_id, kode_model: quickModel.kode_model.trim(), merek: quickModel.merek.trim(), nama_model: quickModel.nama_model.trim(), aktif: true } })
     models.value.push(response.data)
+    selectedModel.value = response.data
     form.model_id = response.data.id
     quickModelModalOpen.value = false
     successMessage.value = 'Model printer berhasil dibuat dan dipilih.'
@@ -207,12 +231,18 @@ async function createQuickWarehouse() {
 function openCreate() {
   editing.value = null
   resetForm()
+  selectedModel.value = null
+  modelSearch.value = ''
+  loadModels()
   crudError.value = ''
   crudModalOpen.value = true
 }
 
 function openEdit(row: Row) {
   editing.value = row
+  selectedModel.value = row.master_printer_model || models.value.find(item => item.id === row.model_id) || null
+  modelSearch.value = ''
+  loadModels()
   Object.assign(form, { mp_no: row.mp_no || '', serial_number: row.serial_number || '', model_id: row.model_id || '', gudang_id: row.gudang_id || '', tanggal_pembelian: row.tanggal_pembelian?.slice?.(0, 10) || '', tanggal_maintenance_berikutnya: row.tanggal_maintenance_berikutnya?.slice?.(0, 10) || '', interval_maintenance_bulan: row.interval_maintenance_bulan || null, keterangan: row.keterangan || '' })
   crudError.value = ''
   crudModalOpen.value = true
@@ -260,6 +290,11 @@ async function submitAction() {
 }
 
 watch([search, pageSize], resetPage)
+watch(modelSearch, value => {
+  if (modelSearchTimer) clearTimeout(modelSearchTimer)
+  modelSearchTimer = setTimeout(() => loadModels(value), 300)
+})
+onUnmounted(() => { if (modelSearchTimer) clearTimeout(modelSearchTimer); modelRequestId++ })
 onMounted(async () => { await loadLookups(); await loadRows() })
 </script>
 
@@ -299,9 +334,13 @@ onMounted(async () => { await loadLookups(); await loadRows() })
           <UAlert v-if="crudError" color="error" variant="subtle" :title="crudError" />
           <UFormField label="MP No" name="mp_no" required><UInput v-model="form.mp_no" class="w-full" /></UFormField>
           <UFormField label="Serial Number" name="serial_number"><UInput v-model="form.serial_number" class="w-full" /></UFormField>
-          <UFormField label="Model" name="model_id" required><USelect v-model="modelSelection" :items="modelOptions" placeholder="Pilih model" class="w-full" /></UFormField>
+          <UFormField label="Model" name="model_id" required>
+            <USelectMenu v-model="modelSelection" v-model:search-term="modelSearch" :items="modelOptions" value-key="value" ignore-filter :loading="modelLoading" :search-input="{ placeholder: 'Cari merek atau model printer' }" placeholder="Pilih model" class="w-full" />
+            <p v-if="modelError" class="mt-1 text-sm text-error">{{ modelError }}</p>
+            <p v-else-if="!modelLoading && !models.length && modelSearch.trim()" class="mt-1 text-sm text-dimmed">Model printer tidak ditemukan.</p>
+          </UFormField>
           <UFormField v-if="!editing" label="Gudang Awal" name="gudang_id" required><USelect v-model="warehouseSelection" :items="warehouseCreateOptions" placeholder="Pilih gudang" class="w-full" /></UFormField>
-          <div class="grid gap-4 sm:grid-cols-2"><UFormField label="Tanggal Pembelian"><UInput v-model="form.tanggal_pembelian" type="date" /></UFormField><UFormField label="Maintenance Berikutnya"><UInput v-model="form.tanggal_maintenance_berikutnya" type="date" /></UFormField></div>
+          <UFormField label="Tanggal Pembelian"><UInput v-model="form.tanggal_pembelian" type="date" /></UFormField>
           <UFormField label="Interval Maintenance (Bulan)"><UInput v-model="form.interval_maintenance_bulan" type="number" min="1" max="120" /></UFormField>
           <UFormField label="Keterangan"><UTextarea v-model="form.keterangan" class="w-full" /></UFormField>
           <UButton type="submit" block :loading="crudSaving">Simpan</UButton>

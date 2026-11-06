@@ -235,7 +235,7 @@ onMounted(initialize)
             <UFormField label="Kode Customer" required><UInput v-model="form.kode_customer" class="w-full" /></UFormField>
             <UFormField label="Nama Customer" required><UInput v-model="form.nama_customer" class="w-full" /></UFormField>
           </div>
-          <UFormField label="Billing">
+          <UFormField v-if="!editing" label="Billing">
             <UCheckbox v-model="form.sendiri" label="Sendiri" />
           </UFormField>
           <UFormField label="Pilih Billing" required><USelectMenu v-model="form.account_id" :items="billingOptions" value-key="value" :loading="billingLoading" :disabled="form.sendiri" searchable searchable-placeholder="Ketik untuk mencari Billing" placeholder="Pilih Billing" class="w-full" /></UFormField>

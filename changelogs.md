@@ -1,5 +1,16 @@
 # Changelogs
 
+## 2026-11-06
+
+### Fixed
+
+- Menampilkan checkbox `Sendiri` hanya pada modal Tambah Customer; modal Edit Customer langsung menampilkan pilihan Billing.
+- Menghapus menu `Lokasi Customer` dan `Lokasi`, serta memindahkan `Master Gudang` menjadi menu langsung di bawah `Master Data`.
+- Memformat pilihan `Model` pada modal Tambah Unit Printer di halaman Stok Printer menjadi `Merk Printer - Model Printer (Kategori Printer)`.
+- Menghilangkan field `Maintenance Berikutnya` dari modal Unit Printer pada halaman Stok Printer.
+- Menambahkan pencarian server pada pilihan Model Printer di modal Tambah/Edit Unit Printer, dengan hasil awal maksimal 20 dan label model terpilih tetap terlihat.
+- Menghapus kolom `Cadangan` dari tabel Stok Toner dan Stok Sparepart.
+
 ## 2026-11-02
 
 ### Changed

@@ -85,9 +85,15 @@ const quickModelCategorySelection = computed({
     else newModel.kategori_id = value
   }
 })
+function printerModelLabel(item: Row) {
+  const category = item.master_printer_kategori?.nama_kategori
+    || categories.value.find(categoryItem => categoryItem.id === item.kategori_id)?.nama_kategori
+    || '-'
+  return `${item.merek} - ${item.nama_model} (${category})`
+}
 const modelOptions = computed(() => models.value
   .filter(item => !form.kategori_id || item.kategori_id === form.kategori_id)
-  .map(item => ({ label: `${item.merek} — ${item.nama_model}`, value: item.id })))
+  .map(item => ({ label: printerModelLabel(item), value: item.id })))
 const unitModelOptions = computed(() => [...modelOptions.value, { label: '+ Buat Model', value: createModelValue }])
 const unitModelSelection = computed({
   get: () => form.model_id as string,

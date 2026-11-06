@@ -3,7 +3,7 @@
     "name": "multiprint",
     "summary": "Frontend Nuxt/Vue/Nuxt UI untuk operasi printer, tiket, surat tugas, stok, dan master data yang mengonsumsi service existing."
   },
-  "updated_at": "2026-11-01T15:45:00Z",
+  "updated_at": "2026-11-06T00:00:00Z",
   "active_task_id": "task-003",
   "tasks": [
     {
@@ -142,6 +142,7 @@
         "changelogs.md",
         "frontend/app/pages/stok/sparepart.vue",
         "frontend/app/components/stock/StockSparepartPage.vue",
+        "frontend/app/components/stock/StockPrinterPage.vue",
         "frontend/app/components/surat-tugas/SuratTugasPage.vue",
         "frontend/app/pages/surat-tugas.vue",
         "frontend/app/components/tiket/TiketPage.vue",
@@ -213,6 +214,12 @@
         "Menambahkan quick-create Model Printer dan Gudang dari form Tambah Unit Printer, dengan pemilihan otomatis setelah berhasil dibuat.",
         "Menambahkan quick-create Kategori Printer dari modal Buat Model Printer, dengan pemilihan otomatis setelah kategori berhasil dibuat.",
         "Menambahkan halaman /surat-tugas berbasis Nuxt UI dengan daftar, pencarian, pembuatan dari tiket atau mandiri, detail bertab, penugasan PIC, hasil unit, pemakaian barang, dan kontrol workflow sesuai role/status."
+        ,"Membatasi checkbox Sendiri pada modal Tambah Customer; modal Edit Customer tetap memakai pilihan Billing."
+        ,"Menghapus menu Lokasi Customer dan Lokasi dari navigasi, lalu menempatkan Master Gudang selevel dengan Sparepart di Master Data."
+        ,"Memformat pilihan Model pada modal Tambah Unit Printer di StockPrinterPage dengan merek, nama model, dan kategori printer; perubahan sebelumnya hanya menyentuh komponen Unit Printer lama."
+        ,"Menghilangkan field Maintenance Berikutnya dari modal Unit Printer di StockPrinterPage; nilai existing tetap dipertahankan saat edit."
+        ,"Menambahkan pencarian server-side dengan debounce 300 ms dan batas 20 hasil pada pilihan Model Printer di modal Unit Printer; pilihan aktif dipertahankan saat hasil berubah."
+        ,"Menghapus kolom Cadangan dari tabel Stok Toner dan Stok Sparepart tanpa mengubah data stok pada service."
         ,"Menetapkan aturan selection master data: pencarian server-side, maksimal 20 hasil awal, debounce sekitar 300 ms, serta state loading/empty/error."
         ,"Menambahkan halaman /tiket berbasis Nuxt UI dengan daftar/filter/pagination, pembuatan berdasarkan katalog, detail, update, resolve, cancel, dan relasi Surat Tugas; selection master data memakai pencarian server-side maksimal 20 hasil awal."
         ,"Menambahkan halaman /audit berbasis Nuxt UI mengikuti referensi ui/src/views/audit/AuditPage.vue; filter mematuhi prasyarat endpoint /audit, dengan state loading/error/empty dan pagination lokal."
