@@ -223,6 +223,7 @@
         ,"Menambahkan Dockerfile production multi-stage dan compose lokal frontend/; URL API dapat diatur melalui NUXT_PUBLIC_API_BASE_URL tanpa mengubah service/."
         ,"Menggabungkan service frontend ke compose root dengan context ./frontend dan port default 3000; service ui existing tetap dipertahankan."
         ,"Menghapus compose frontend yang sudah tidak diperlukan, membuat ulang container frontend dan service dari compose root, serta mengekspor image ke multiprint-frontend.tar dan multiprint-service.tar."
+        ,"Membangun ulang image frontend dan service pada 2026-11-04, membuat ulang container dari compose root, lalu menimpa export multiprint-frontend.tar dan multiprint-service.tar."
         ,"Mengubah workflow Tiket/ST: Tiket baru tidak memilih jenis pekerjaan; ST memfilter jenis tugas berdasarkan kategori Tiket; detail Tiket memberi rekomendasi penutupan setelah ST selesai dan admin menjadi akses penutupan sementara."
         ,"Modal Edit Tiket memakai tab Detil dan Surat Tugas; service menyimpan perubahan Sales, tanggal transaksi, dan deskripsi. Unit printer ditampilkan hanya baca."
         ,"Buat Surat Tugas dari modal Tiket membuka popup Surat Tugas di halaman Tiket dengan field Tiket baca saja. Setelah tersimpan, modal Edit Tiket dibuka pada tab Surat Tugas."

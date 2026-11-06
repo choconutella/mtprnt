@@ -4,6 +4,8 @@
 
 ### Changed
 
+- Membangun ulang dan menjalankan container `frontend` serta `service` dari root Compose.
+- Memperbarui export image `multiprint-frontend.tar` dan `multiprint-service.tar`.
 - Mengganti tombol View pada halaman `/surat-tugas` menjadi Edit. Form edit menggunakan form yang sama dengan pembuatan Surat Tugas, mengisi data ST terpilih, dan menyimpan perubahan melalui endpoint PUT Surat Tugas.
 - Menambahkan tab sidebar Detil dan Items pada popup Surat Tugas. Tab Items mendukung pemilihan printer serta penambahan toner/sparepart dengan gudang, jumlah, dan keterangan.
 - Tab Items kini menampilkan jumlah item dan daftar beberapa Toner/Sparepart. Penambahan item tersedia setelah ST dimulai, sesuai batas status pada service.
