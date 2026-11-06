@@ -58,3 +58,13 @@
 - Decision: Tiket baru hanya menyimpan kategori dan cakupan kebutuhan umum. Jenis pekerjaan dipilih saat membuat ST setelah Tiket dipilih; pilihan ST difilter berdasarkan kategori Tiket. Tiket menampilkan rekomendasi penutupan setelah ST terkait selesai, tetapi penutupan tetap dilakukan manual.
 - Temporary access: Admin menggunakan hak penutupan selama role Supervisor belum tersedia.
 - Consequences: Field `jenis` pada database lama dipertahankan untuk kompatibilitas, tetapi Tiket baru menyimpannya kosong. Endpoint ST menerima Tiket tanpa jenis dan memvalidasi jenis tugas berdasarkan kategori.
+
+## DEC-007: Owner Tiket dapat berupa user aktif dengan role apa pun
+
+- Date: 2026-11-06
+- Status: Accepted
+- Context: Form Tiket sebelumnya menampilkan Sales dan service membatasi pilihan ke role Sales; kebutuhan operasional meminta Owner dari semua user.
+- Decision: Tampilkan pilihan sebagai Owner dan validasi semua user aktif. Pertahankan `sales_id` sebagai nama field API dan kolom database untuk kompatibilitas; Owner wajib untuk kategori delivery dan komplain, opsional untuk kategori lain. Hak akses tiket tetap diatur oleh role dan alur yang sudah ada.
+- Reason: Memenuhi kebutuhan penugasan tanpa migrasi data atau memutus kontrak klien lama.
+- Alternatives Considered: Menambah kolom dan field `owner_id` baru melalui migrasi; mengganti nama `sales_id` secara breaking.
+- Consequences: Nama internal `sales_id` bersifat historis dan perlu dijelaskan di kontrak. Penugasan Owner tidak otomatis memberi akses tiket kepada user yang ditunjuk.

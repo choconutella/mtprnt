@@ -47,6 +47,18 @@ function toPrismaData(body) {
 router.use(autentikasi);
 
 router.get("/", otorisasi("sales", "sales-admin", "kepala-teknisi", "teknisi", "warehouse"), asyncHandler(async (req, res) => {
+  if (req.query.halaman !== undefined || req.query.batas !== undefined || req.query.cari !== undefined) {
+    const query = z.object({ halaman: z.coerce.number().int().min(1).default(1), batas: z.coerce.number().int().min(1).max(100).default(20), cari: z.string().optional() }).parse(req.query);
+    const where = { aktif: true, ...(query.cari?.trim() ? { OR: [
+      { nama: { contains: query.cari.trim(), mode: "insensitive" } },
+      { user_id: { contains: query.cari.trim(), mode: "insensitive" } }
+    ] } : {}) };
+    const [total, items] = await Promise.all([
+      prisma.master_pengguna.count({ where }),
+      prisma.master_pengguna.findMany({ where, orderBy: { tanggal_dibuat: "desc" }, skip: (query.halaman - 1) * query.batas, take: query.batas })
+    ]);
+    return sukses(res, "Data pengguna berhasil diambil.", { items: items.map(bersihkan), meta: { halaman: query.halaman, batas: query.batas, total } });
+  }
   const items = await prisma.master_pengguna.findMany({
     orderBy: { tanggal_dibuat: "desc" }
   });

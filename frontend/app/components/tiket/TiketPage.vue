@@ -42,7 +42,10 @@ const createOpen = ref(false);
 const detailOpen = ref(false);
 const stModalOpen = ref(false);
 const stTicketId = ref("");
+const stEditingId = ref("");
+const stError = ref("");
 const detailTab = ref<"detil" | "surat_tugas">("detil");
+const createTab = ref<"detil" | "surat_tugas">("detil");
 const selected = ref<Row | null>(null);
 const options = reactive<Record<string, Row[]>>({
   customers: [],
@@ -55,6 +58,8 @@ const loadingOptions = reactive({
   printer: false,
   sales: false,
 });
+const ownerError = ref("");
+let ownerSearchRequest = 0;
 const form = reactive({
   kategori: "",
   account_id: "",
@@ -64,16 +69,14 @@ const form = reactive({
   deskripsi: "",
   printer_ids: [] as string[],
 });
-const salesItems = computed(() =>
+const ownerItems = computed(() =>
   options.sales
     .filter(
       (row) =>
-        ["sales"].includes(String(row.role || row.peran || "").toLowerCase()) &&
-        row.aktif !== false &&
-        row.active !== false,
+        (row.aktif !== false && row.active !== false) || row.id === form.sales_id,
     )
     .map((row) => ({
-      label: row.nama_lengkap || row.name || row.user_id,
+      label: row.nama_lengkap || row.name || row.nama || row.user_id,
       value: row.id,
     })),
 );
@@ -162,33 +165,40 @@ async function loadTickets() {
   }
 }
 async function loadOption(path: string, key: string, term = "") {
+  const requestId = key === "sales" ? ++ownerSearchRequest : 0;
+  if (key === "sales") ownerError.value = "";
   loadingOptions[key as keyof typeof loadingOptions] = true;
   try {
     const q = new URLSearchParams({ halaman: "1", batas: "20" });
     if (term.trim()) q.set("cari", term.trim());
     const r = await request<Row>(`${path}?${q}`);
+    if (key === "sales" && requestId !== ownerSearchRequest) return;
     const results = unwrap(r);
     if (key === "printers") {
       const selectedUnits = options.printers.filter((unit) => form.printer_ids.includes(unit.id));
       options.printers = [...new Map([...selectedUnits, ...results].map((unit) => [unit.id, unit])).values()];
     } else if (key === "sales") {
-      const selectedSales = options.sales.filter((user) => user.id === form.sales_id);
-      options.sales = [...new Map([...selectedSales, ...results].map((user) => [user.id, user])).values()];
+      const selectedOwner = options.sales.filter((user) => user.id === form.sales_id);
+      options.sales = [...new Map([...selectedOwner, ...results].map((user) => [user.id, user])).values()];
     } else options[key] = results;
   } catch (e) {
-    errorMessage.value = message(e, "Pilihan data gagal dimuat.");
+    if (key === "sales") {
+      if (requestId === ownerSearchRequest) ownerError.value = message(e, "Pilihan Owner gagal dimuat.");
+    } else errorMessage.value = message(e, "Pilihan data gagal dimuat.");
   } finally {
-    loadingOptions[key as keyof typeof loadingOptions] = false;
+    if (key !== "sales" || requestId === ownerSearchRequest) loadingOptions[key as keyof typeof loadingOptions] = false;
   }
 }
 function openCreate() {
   clearNotice();
   selected.value = null;
   resetForm();
+  createTab.value = "detil";
   createOpen.value = true;
 }
 async function openDetail(row: Row, tab: "detil" | "surat_tugas" = "detil") {
   clearNotice();
+  stError.value = "";
   try {
     const r = await request<Row>(`/tiket/${row.id}`);
     selected.value = r.data;
@@ -205,7 +215,14 @@ async function openDetail(row: Row, tab: "detil" | "surat_tugas" = "detil") {
     });
     const selectedUnits = (selected.value.tiket_printer || []).map((line: Row) => line.master_printer).filter(Boolean);
     options.printers = [...new Map([...selectedUnits, ...options.printers].map((unit) => [unit.id, unit])).values()];
-    if (selected.value.sales_id && selected.value.master_pengguna_sales && !options.sales.some((user) => user.id === selected.value.sales_id)) options.sales = [selected.value.master_pengguna_sales, ...options.sales];
+    if (selected.value.sales_id && !options.sales.some((user) => user.id === selected.value.sales_id)) {
+      try {
+        const ownerResponse = await request<Row>(`/pengguna/${selected.value.sales_id}`);
+        options.sales = [ownerResponse.data, ...options.sales];
+      } catch {
+        // Detail tiket tetap dapat dibuka jika profil Owner tidak tersedia.
+      }
+    }
     detailOpen.value = true;
   } catch (e) {
     errorMessage.value = message(e, "Detail tiket gagal dimuat.");
@@ -265,6 +282,7 @@ async function saveAndCreateSt() {
       throw new Error("Tiket berhasil dibuat tetapi ID tidak tersedia.");
     createOpen.value = false;
     stTicketId.value = ticketId;
+    stEditingId.value = "";
     stModalOpen.value = true;
     await loadTickets();
   } catch (e) {
@@ -275,9 +293,29 @@ async function saveAndCreateSt() {
 }
 function createStFromDetail() {
   if (!selected.value?.id) return;
+  stError.value = "";
   detailOpen.value = false;
   stTicketId.value = selected.value.id;
+  stEditingId.value = "";
   stModalOpen.value = true;
+}
+function openStFromTicket(row: Row) {
+  if (!selected.value?.id || !row.id) return;
+  stError.value = "";
+  stTicketId.value = selected.value.id;
+  stEditingId.value = row.id;
+  detailOpen.value = false;
+  stModalOpen.value = true;
+}
+async function onStClosed() {
+  if (!stModalOpen.value) return;
+  stModalOpen.value = false;
+  if (selected.value?.id) await openDetail({ id: selected.value.id }, "surat_tugas");
+}
+async function onStFailed(error: string) {
+  stModalOpen.value = false;
+  if (selected.value?.id) await openDetail({ id: selected.value.id }, "surat_tugas");
+  stError.value = error;
 }
 async function onStCreated() {
   const ticketId = stTicketId.value;
@@ -424,9 +462,15 @@ onMounted(async () => {
     <UModal
       v-model:open="createOpen"
       title="Buat Tiket"
-      :ui="{ content: 'sm:max-w-3xl' }"
+      :ui="{ content: 'sm:max-w-3xl h-[80vh] max-h-[800px]', body: 'overflow-y-auto' }"
       ><template #body
-        ><UForm :state="form" class="space-y-4" @submit="save"
+        ><div class="flex flex-col gap-4 sm:flex-row">
+          <nav class="flex shrink-0 gap-2 sm:w-36 sm:flex-col" aria-label="Bagian Tiket">
+            <UButton :variant="createTab === 'detil' ? 'soft' : 'ghost'" color="neutral" class="justify-start" @click="createTab = 'detil'">Detil</UButton>
+            <UButton :variant="createTab === 'surat_tugas' ? 'soft' : 'ghost'" color="neutral" class="justify-start" @click="createTab = 'surat_tugas'">Surat Tugas</UButton>
+          </nav>
+          <div class="min-w-0 flex-1">
+          <UForm v-if="createTab === 'detil'" :state="form" class="space-y-4" @submit="save"
           ><UFormField label="Kategori" required
             ><USelect
               v-model="form.kategori"
@@ -457,24 +501,6 @@ onMounted(async () => {
               :loading="loadingOptions.customer"
               class="w-full"
               @update:model-value="selectCustomer" /></UFormField
-          ><UFormField
-            v-if="['delivery', 'komplain'].includes(form.kategori)"
-            label="Sales"
-            required
-            ><USelectMenu
-              v-model="form.sales_id"
-              v-model:search-term="searches.sales"
-              :items="salesItems"
-              value-key="value"
-              searchable
-              ignore-filter
-              :loading="loadingOptions.sales"
-              class="w-full" /></UFormField
-          ><UFormField label="Tanggal Tiket" required
-            ><UInput
-              v-model="form.tanggal_transaksi"
-              type="datetime-local"
-              class="w-full" /></UFormField
           ><UFormField label="Unit Printer"
             ><USelectMenu
               v-model="form.printer_ids"
@@ -491,22 +517,41 @@ onMounted(async () => {
               ignore-filter
               :loading="loadingOptions.printer"
               class="w-full" /></UFormField
+          ><UFormField label="Tanggal Tiket" required
+            ><UInput
+              v-model="form.tanggal_transaksi"
+              type="datetime-local"
+              class="w-full" /></UFormField
+          ><UFormField
+            label="Owner"
+            :required="['delivery', 'komplain'].includes(form.kategori)"
+            ><USelectMenu
+              v-model="form.sales_id"
+              v-model:search-term="searches.sales"
+              :items="ownerItems"
+              value-key="value"
+              searchable
+              ignore-filter
+              :loading="loadingOptions.sales"
+              :search-input="{ placeholder: 'Cari nama atau ID user' }"
+              class="w-full" />
+            <p v-if="ownerError" class="text-sm text-error">{{ ownerError }}</p>
+            <p v-else-if="!loadingOptions.sales && !ownerItems.length" class="text-sm text-dimmed">User aktif tidak ditemukan.</p>
+          </UFormField
           ><UFormField label="Deskripsi"
             ><UTextarea v-model="form.deskripsi" class="w-full"
           /></UFormField>
-          <div class="grid gap-2 sm:grid-cols-2">
-            <UButton type="submit" block :loading="saving">Simpan Tiket</UButton
-            ><UButton
-              type="button"
-              block
-              color="primary"
-              variant="outline"
-              :loading="saving"
-              @click="saveAndCreateSt"
-              >Buat Surat Tugas</UButton
-            >
-          </div></UForm
-        ></template
+          <div class="flex justify-end">
+            <UButton type="submit" :loading="saving">Simpan Tiket</UButton>
+          </div></UForm>
+          <div v-else class="space-y-4">
+            <p class="text-sm text-dimmed">Isi data pada tab Detil terlebih dahulu. Tiket akan disimpan sebelum form Surat Tugas dibuka.</p>
+            <div class="flex justify-end">
+              <UButton color="primary" variant="outline" :loading="saving" @click="saveAndCreateSt">Buat Surat Tugas</UButton>
+            </div>
+          </div>
+          </div>
+        </div></template
       ></UModal
     >
     <UModal
@@ -533,7 +578,7 @@ onMounted(async () => {
             <UFormField label="Customer / Site"><UInput :model-value="selected.master_customer?.nama_customer || '—'" readonly class="w-full" /></UFormField>
             <UFormField label="Unit Printer"><UInput :model-value="selected.tiket_printer?.map((line: Row) => line.mp_no).join(', ') || '—'" readonly class="w-full" /></UFormField>
             <UFormField label="Tanggal Tiket"><UInput v-model="form.tanggal_transaksi" type="datetime-local" :readonly="!canEditSelected" class="w-full" /></UFormField>
-            <UFormField label="Sales"><USelectMenu v-model="form.sales_id" v-model:search-term="searches.sales" :items="salesItems" value-key="value" searchable ignore-filter :loading="loadingOptions.sales" :disabled="!canEditSelected" class="w-full" /></UFormField>
+            <UFormField label="Owner"><USelectMenu v-model="form.sales_id" v-model:search-term="searches.sales" :items="ownerItems" value-key="value" searchable ignore-filter :loading="loadingOptions.sales" :disabled="!canEditSelected" :search-input="{ placeholder: 'Cari nama atau ID user' }" class="w-full" /><p v-if="ownerError" class="text-sm text-error">{{ ownerError }}</p><p v-else-if="!loadingOptions.sales && !ownerItems.length" class="text-sm text-dimmed">User aktif tidak ditemukan.</p></UFormField>
             <UFormField label="Deskripsi"><UTextarea v-model="form.deskripsi" :readonly="!canEditSelected" class="w-full" /></UFormField>
             <div class="flex justify-end gap-2">
               <UButton v-if="canEditSelected" :loading="saving" @click="save">Simpan Perubahan</UButton>
@@ -541,7 +586,11 @@ onMounted(async () => {
             </div>
           </div>
           <div v-else class="space-y-4">
-            <UTable :data="selected.surat_tugas || []" :columns="[{ accessorKey: 'nomor_surat_tugas', header: 'Nomor ST' }, { accessorKey: 'jenis_tugas', header: 'Jenis Tugas' }, { accessorKey: 'status', header: 'Status' }]" />
+            <UAlert v-if="stError" color="error" variant="subtle" :title="stError" />
+            <UTable :data="selected.surat_tugas || []" :columns="[{ accessorKey: 'nomor_surat_tugas', header: 'Nomor ST' }, { accessorKey: 'jenis_tugas', header: 'Jenis Tugas' }, { accessorKey: 'status', header: 'Status' }]">
+              <template #nomor_surat_tugas-cell="{ row }"><UButton type="button" color="primary" variant="link" class="p-0" :aria-label="`Buka Surat Tugas ${row.original.nomor_surat_tugas}`" @click="openStFromTicket(row.original)">{{ row.original.nomor_surat_tugas }}</UButton></template>
+              <template #empty><div class="py-8 text-center text-sm text-dimmed">Belum ada Surat Tugas.</div></template>
+            </UTable>
             <div class="flex justify-end">
             <UButton
               v-if="!['solved', 'cancelled'].includes(selected.status)"
@@ -560,7 +609,9 @@ onMounted(async () => {
       v-if="stModalOpen"
       embedded
       :ticket-id="stTicketId"
-      @close="stModalOpen = false"
+      :surat-tugas-id="stEditingId"
+      @close="onStClosed"
+      @failed="onStFailed"
       @created="onStCreated"
     />
   </div>

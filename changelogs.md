@@ -10,6 +10,9 @@
 - Menghilangkan field `Maintenance Berikutnya` dari modal Unit Printer pada halaman Stok Printer.
 - Menambahkan pencarian server pada pilihan Model Printer di modal Tambah/Edit Unit Printer, dengan hasil awal maksimal 20 dan label model terpilih tetap terlihat.
 - Menghapus kolom `Cadangan` dari tabel Stok Toner dan Stok Sparepart.
+- Menyamakan tata letak modal Buat Tiket dengan Edit Tiket: tab Detil dan Surat Tugas, ukuran modal, serta area konten bergulir.
+- Mengganti pilihan Sales di modal Tiket menjadi Owner dari semua user aktif; service menerima Owner lintas role dan pilihan user mendukung pencarian server.
+- Nomor Surat Tugas pada modal Edit Tiket dapat diklik untuk membuka popup Edit Surat Tugas; daftar diperbarui saat popup ditutup.
 
 ## 2026-11-04
 

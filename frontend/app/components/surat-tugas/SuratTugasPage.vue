@@ -3,11 +3,12 @@
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Row = Record<string, any>;
 
-const props = withDefaults(defineProps<{ embedded?: boolean; ticketId?: string }>(), {
+const props = withDefaults(defineProps<{ embedded?: boolean; ticketId?: string; suratTugasId?: string }>(), {
   embedded: false,
   ticketId: "",
+  suratTugasId: "",
 });
-const emit = defineEmits<{ close: []; created: [] }>();
+const emit = defineEmits<{ close: []; created: []; failed: [message: string] }>();
 const { request, message } = useServiceApi();
 const auth = useAuth();
 const rows = ref<Row[]>([]);
@@ -472,6 +473,7 @@ async function openEdit(row: Row) {
     await loadPrinters("", true);
   } catch (error) {
     errorMessage.value = message(error, "Surat Tugas gagal dimuat untuk diedit.");
+    if (props.embedded && props.suratTugasId) emit("failed", errorMessage.value);
   } finally {
     saving.value = false;
   }
@@ -852,7 +854,7 @@ async function deleteItem(item: Row) {
   }
 }
 onMounted(async () => {
-  if (props.embedded) createOpen.value = true;
+  if (props.embedded && !props.suratTugasId) createOpen.value = true;
   await load();
   await loadCustomers("", true);
   const ticketId = props.embedded
@@ -866,11 +868,12 @@ onMounted(async () => {
       errorMessage.value = message(error, "Tiket gagal dimuat.");
     }
   }
-  if (ticketId && options.tickets.some((row) => row.id === ticketId)) {
+  if (ticketId && options.tickets.some((row) => row.id === ticketId) && !props.suratTugasId) {
     form.tiket_id = ticketId;
     useTicket();
     createOpen.value = true;
   }
+  if (props.embedded && props.suratTugasId) await openEdit({ id: props.suratTugasId });
 });
 watch(createOpen, (open) => {
   if (props.embedded && !open) emit("close");

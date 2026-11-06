@@ -72,9 +72,11 @@ Status yang perlu ditangani UI: `400`, `401`, `403`, `404`, `405`, `409`, `422`,
 | GET | `/tiket/catalog` | Permission | Katalog jenis tiket |
 | GET/POST/PUT | `/tiket` dan `/tiket/:id` | Permission | CRUD tiket; `jenis` opsional pada Tiket baru dan ditentukan pada Surat Tugas |
 | POST | `/tiket/:id/resolve` | Permission | Selesaikan tiket |
-
-`PUT /tiket/:id` menerima `sales_id`, `tanggal_transaksi` (ISO datetime), dan `deskripsi` untuk edit Tiket. Nomor, kategori, customer, dan unit printer tetap dibaca saja.
 | POST | `/tiket/:id/cancel` | Permission | Batalkan tiket |
+
+`POST /tiket` dan `PUT /tiket/:id` memakai `sales_id` sebagai ID Owner tiket (nama field lama dipertahankan). Owner boleh user aktif dengan role apa pun; pada kategori `delivery` dan `komplain`, Owner wajib diisi. Owner tidak otomatis mendapat hak akses tiket di luar aturan role yang berlaku. `PUT /tiket/:id` juga menerima `tanggal_transaksi` (ISO datetime) dan `deskripsi`. Nomor, kategori, customer, dan unit printer tetap dibaca saja.
+
+`GET /pengguna?halaman=1&batas=20&cari=...` mengembalikan `{ items, meta }` berisi user aktif, dengan pencarian nama atau user ID. Tanpa parameter tersebut, respons tetap berupa daftar langsung untuk kompatibilitas klien lama.
 | GET/POST/PUT | `/surat-tugas` dan `/surat-tugas/:id` | Role | CRUD surat tugas |
 | POST | `/surat-tugas/:id/teknisi` | Role | Assign teknisi |
 | POST | `/surat-tugas/:id/start` | Role | Mulai pekerjaan |

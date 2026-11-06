@@ -119,10 +119,10 @@ async function validasiBody(tx, body) {
     if (!body.account_id || !body.customer_id) reject("Account dan Customer wajib dipilih.");
   }
   if (body.customer_id || body.account_id) await pastikanCustomerAccount(tx, body.account_id, body.customer_id);
-  if (["delivery", "komplain"].includes(body.kategori)) {
-    if (!body.sales_id) reject("Sales wajib dipilih dari user Sales aktif.");
-    const sales = await tx.master_pengguna.findUnique({ where: { id: body.sales_id } });
-    if (!sales?.aktif || sales.peran !== "sales") reject("Sales harus user ber-role Sales aktif.");
+  if (["delivery", "komplain"].includes(body.kategori) && !body.sales_id) reject("Owner wajib dipilih.");
+  if (body.sales_id) {
+    const owner = await tx.master_pengguna.findUnique({ where: { id: body.sales_id } });
+    if (!owner?.aktif) reject("Owner harus user aktif.");
   }
   if (body.jenis) {
     if (["trial", "event"].includes(body.jenis) && !body.tanggal_akhir) reject("Tanggal akhir wajib diisi.");
@@ -232,8 +232,8 @@ router.put("/:id", izin("tiket", "update", "sales-admin", "kepala-teknisi", "war
     assertOwner(req, before.kategori);
     if (["solved", "cancelled"].includes(before.status)) reject("Tiket selesai tidak dapat diedit.", 409);
     if (body.sales_id) {
-      const sales = await tx.master_pengguna.findUnique({ where: { id: body.sales_id } });
-      if (!sales?.aktif || sales.peran !== "sales") reject("Sales harus user ber-role Sales aktif.");
+      const owner = await tx.master_pengguna.findUnique({ where: { id: body.sales_id } });
+      if (!owner?.aktif) reject("Owner harus user aktif.");
     }
     const after = await tx.tiket.update({ where: { id: before.id }, data: { ...body, ...(body.tanggal_transaksi ? { tanggal_transaksi: new Date(body.tanggal_transaksi) } : {}), ...(body.tanggal_akhir !== undefined ? { tanggal_akhir: body.tanggal_akhir ? new Date(body.tanggal_akhir) : null } : {}), tanggal_diperbarui: new Date() } });
     await catatAudit(tx, req, { jenis_dokumen: "tiket", nomor_dokumen: after.nomor_tiket, tabel_sumber: "tiket", id_sumber: after.id, aksi: "ubah", data_sebelum: before, data_sesudah: after, keterangan: "Tiket diperbarui." });
