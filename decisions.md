@@ -49,3 +49,12 @@
 - Reason: Satu entry point Compose menyederhanakan operasi lokal, sementara frontend lama tetap tersedia melalui service `ui` dan konfigurasi API tetap dapat diganti tanpa rebuild image.
 - Alternatives Considered: Mempertahankan compose terpisah di `frontend/` atau mengganti service `ui` pada compose root.
 - Consequences: Frontend tersedia di port 3000 secara default; service API harus tersedia di host pada port 5000 atau URL API perlu dioverride saat menjalankan compose.
+
+## DEC-006: Jenis pekerjaan dipilih pada Surat Tugas
+
+- Date: 2026-11-04
+- Status: Accepted
+- Context: Dokumen WO–ST memisahkan kebutuhan pada WO dari rincian pelaksanaan pada ST. Satu Tiket dapat membutuhkan beberapa ST, seperti BACK UP yang memiliki pengiriman pengganti dan penerimaan unit rusak.
+- Decision: Tiket baru hanya menyimpan kategori dan cakupan kebutuhan umum. Jenis pekerjaan dipilih saat membuat ST setelah Tiket dipilih; pilihan ST difilter berdasarkan kategori Tiket. Tiket menampilkan rekomendasi penutupan setelah ST terkait selesai, tetapi penutupan tetap dilakukan manual.
+- Temporary access: Admin menggunakan hak penutupan selama role Supervisor belum tersedia.
+- Consequences: Field `jenis` pada database lama dipertahankan untuk kompatibilitas, tetapi Tiket baru menyimpannya kosong. Endpoint ST menerima Tiket tanpa jenis dan memvalidasi jenis tugas berdasarkan kategori.

@@ -1,97 +1,567 @@
 <script setup lang="ts">
-type Row = Record<string, any>
+import SuratTugasPage from "../surat-tugas/SuratTugasPage.vue";
 
-const { request, message } = useServiceApi()
-const auth = useAuth()
-const role = computed(() => String(auth.user.value?.role || '').toLowerCase().replaceAll('-', '_'))
-const owners: Record<string, string> = { delivery: 'sales_admin', komplain: 'sales_admin', internal: 'kepala_teknisi', inbound: 'warehouse', maintenance: 'kepala_teknisi' }
-const categories: Record<string, string> = { delivery: 'Delivery', komplain: 'Komplain', internal: 'Internal', inbound: 'Inbound', maintenance: 'Maintenance' }
-const kinds: Record<string, string> = { kontrak: 'Kontrak', trial: 'Trial', stand_by: 'Stand-by', event: 'Event', sell: 'Sell', toner_purchase: 'Toner Purchase', on_site_service: 'On-site Service', back_up: 'Back-up', repair: 'Repair', qc: 'QC', internal_use: 'Internal Use', return: 'Return', penerimaan_printer: 'Penerimaan Printer', maintenance: 'Maintenance' }
-const statuses = ['new', 'pending', 'progress', 'solved', 'cancelled']
-const canCreate = computed(() => role.value === 'admin' || Object.values(owners).includes(role.value))
-const canManageSelected = computed(() => Boolean(selected.value && (role.value === 'admin' || owners[selected.value.kategori] === role.value) && !['solved', 'cancelled'].includes(selected.value.status)))
-
-const rows = ref<Row[]>([])
-const total = ref(0)
-const page = ref(1)
-const pageSize = ref(10)
-const search = ref('')
-const category = ref<string | undefined>()
-const status = ref<string | undefined>()
-const catalog = ref<Record<string, Record<string, string[]>>>({})
-const loading = ref(false)
-const saving = ref(false)
-const errorMessage = ref('')
-const successMessage = ref('')
-const createOpen = ref(false)
-const detailOpen = ref(false)
-const detailTab = ref('general')
-const selected = ref<Row | null>(null)
-
-const options = reactive<Record<string, Row[]>>({ accounts: [], customers: [], printers: [], models: [], toners: [], sales: [], contracts: [], trials: [] })
-const searches = reactive({ account: '', customer: '', printer: '', sales: '' })
-const loadingOptions = reactive({ account: false, customer: false, printer: false, sales: false })
-const form = reactive({ kategori: '', jenis: '', account_id: '', customer_id: '', sales_id: '', mode: '', kontrak_id: '', tiket_asal_id: '', tanggal_transaksi: '', tanggal_akhir: '', lokasi_internal: '', deskripsi: '', alasan: '', hasil: '', printer_ids: [] as string[], printer_utama_id: '', printer_pengganti_id: '', printer_lama_id: '', toner_id: '', jumlah: 1, newPrinters: [{ mp_no: '', model_id: '', sumber: '' }] })
-
-const allowedCategories = computed(() => Object.keys(catalog.value).filter(key => role.value === 'admin' || owners[key] === role.value))
-const availableKinds = computed(() => Object.keys(catalog.value[form.kategori] || {}))
-const customerRequired = computed(() => ['delivery', 'komplain', 'maintenance'].includes(form.kategori) || form.jenis === 'return')
-const selectedAccountCustomers = computed(() => options.customers.filter(item => item.account_id === form.account_id && item.aktif !== false))
-const printerItems = computed(() => options.printers.filter(item => item.id).map(item => ({ label: `${item.mp_no || '-'} · ${item.master_printer_model?.nama_model || item.nama_model || '-'}`, value: String(item.id) })))
-const customerItems = computed(() => options.customers.filter(item => item.aktif !== false).map(item => {
-  const account = item.master_account || item.account
-  return item.id ? { label: `${item.nama_customer || item.name || '-'}${account?.nama_account ? ` · ${account.nama_account}` : ''}`, value: String(item.id) } : null
-}).filter(Boolean) as { label: string, value: string }[])
-const salesItems = computed(() => options.sales.filter(item => item.id && item.aktif !== false && item.active !== false).map(item => ({ label: item.nama_lengkap || item.name || item.user_id || '-', value: String(item.id) })))
-const contractItems = computed(() => options.contracts.filter(item => item.id && item.status === 'aktif' && item.customer_id === form.customer_id).map(item => ({ label: item.nomor_kontrak || '-', value: String(item.id) })))
-const availablePrinters = computed(() => options.printers.filter(item => {
-  if (['on_site_service', 'maintenance', 'return', 'back_up'].includes(form.jenis)) return item.lokasi_jenis === 'customer' && item.customer_id === form.customer_id
-  if (['repair', 'qc'].includes(form.jenis)) return item.lokasi_jenis === 'gudang'
-  return item.lokasi_jenis === 'gudang' && item.kondisi === 'ready' && !item.surat_tugas_aktif_id
-}))
-const availablePrinterItems = computed(() => availablePrinters.value.filter(item => item.id).map(item => ({ label: `${item.mp_no || '-'} · ${item.master_printer_model?.nama_model || '-'}`, value: String(item.id) })))
-
-function unwrap(response: Row): Row[] { return Array.isArray(response?.data) ? response.data : response?.data?.items || [] }
-function dateTimeLocal() { const now = new Date(); return new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16) }
-function iso(value: string) { return value ? new Date(value).toISOString() : null }
-function resetForm() { Object.assign(form, { kategori: allowedCategories.value[0] || '', jenis: '', account_id: '', customer_id: '', sales_id: '', mode: '', kontrak_id: '', tiket_asal_id: '', tanggal_transaksi: dateTimeLocal(), tanggal_akhir: '', lokasi_internal: '', deskripsi: '', alasan: '', hasil: '', printer_ids: [], printer_utama_id: '', printer_pengganti_id: '', printer_lama_id: '', toner_id: '', jumlah: 1, newPrinters: [{ mp_no: '', model_id: '', sumber: '' }] }); form.jenis = availableKinds.value[0] || '' }
-function clearNotice() { errorMessage.value = ''; successMessage.value = '' }
-function selectCustomer(customerId: string) { const customer = options.customers.find(item => item.id === customerId); form.account_id = customer?.account_id || customer?.master_account?.id || customer?.account?.id || '' }
-
-async function loadTickets() { loading.value = true; errorMessage.value = ''; try { const query = new URLSearchParams({ halaman: String(page.value), batas: String(pageSize.value) }); if (search.value.trim()) query.set('cari', search.value.trim()); if (category.value) query.set('kategori', category.value); if (status.value) query.set('status', status.value); const response = await request<Row>(`/tiket?${query}`); rows.value = unwrap(response); total.value = response?.data?.meta?.total || 0 } catch (error) { errorMessage.value = message(error, 'Daftar tiket gagal dimuat.') } finally { loading.value = false } }
-async function loadOption(path: string, key: string, searchTerm = '') { loadingOptions[key as keyof typeof loadingOptions] = true; try { const query = new URLSearchParams({ halaman: '1', batas: '20' }); if (searchTerm.trim()) query.set('cari', searchTerm.trim()); const separator = path.includes('?') ? '&' : '?'; const response = await request<Row>(`${path}${separator}${query}`); options[key] = unwrap(response) } catch (error) { errorMessage.value = message(error, 'Pilihan data gagal dimuat.') } finally { loadingOptions[key as keyof typeof loadingOptions] = false } }
-async function loadCatalog() { const response = await request<Row>('/tiket/catalog'); catalog.value = response?.data && typeof response.data === 'object' ? response.data : {} }
-async function loadBaseOptions() { await Promise.all([loadCatalog(), loadOption('/printer-model', 'models'), loadOption('/toner', 'toners'), loadOption('/kontrak', 'contracts'), loadOption('/tiket?jenis=trial&status=solved', 'trials')]); await Promise.all([loadOption('/account/lokasi-customer', 'customers'), loadOption('/printer', 'printers'), loadUsers('')]) }
-async function loadUsers(term: string) { loadingOptions.sales = true; try { const response = await request<Row>(`/pengguna?halaman=1&batas=20${term ? `&cari=${encodeURIComponent(term)}` : ''}`); options.sales = unwrap(response).filter(item => ['sales', 'sales_admin', 'sales-admin'].includes(String(item.role || item.peran || '').toLowerCase())) } catch (error) { errorMessage.value = message(error, 'Daftar sales gagal dimuat.') } finally { loadingOptions.sales = false } }
-
-let searchTimers: Record<string, ReturnType<typeof setTimeout> | undefined> = {}
-function debounceOption(key: 'account' | 'customer' | 'printer' | 'sales', path: string, value: string) { if (searchTimers[key]) clearTimeout(searchTimers[key]); searchTimers[key] = setTimeout(() => key === 'sales' ? loadUsers(value) : loadOption(path, `${key}s`, value), 300) }
-function openCreate() { clearNotice(); selected.value = null; detailOpen.value = false; resetForm(); createOpen.value = true }
-async function openDetail(row: Row) { clearNotice(); try { const response = await request<Row>(`/tiket/${row.id}`); if (!response?.data || typeof response.data !== 'object') throw new Error('Detail tiket tidak tersedia.'); selected.value = response.data; Object.assign(form, { deskripsi: selected.value?.deskripsi || '', hasil: selected.value?.hasil || '', alasan: selected.value?.alasan || '', lokasi_internal: selected.value?.lokasi_internal || '' }); detailTab.value = 'general'; detailOpen.value = true } catch (error) { errorMessage.value = message(error, 'Detail tiket gagal dimuat.') } }
-function printerLine(id: string, peran = 'utama') { const item = options.printers.find(row => row.id === id); return item ? { printer_id: item.id, mp_no: item.mp_no, model_id: item.model_id || null, serial_number: item.serial_number || null, peran } : null }
-function payload() { const lines = form.jenis === 'penerimaan_printer' ? form.newPrinters.map(row => ({ mp_no: row.mp_no.trim(), model_id: row.model_id, sumber: row.sumber.trim(), peran: 'utama' })) : form.jenis === 'back_up' ? [printerLine(form.printer_utama_id), printerLine(form.printer_pengganti_id, 'pengganti')] : form.jenis === 'toner_purchase' ? [] : form.printer_ids.map(id => printerLine(id)).concat(form.jenis === 'kontrak' && form.mode === 'tukar' ? [printerLine(form.printer_lama_id, 'unit_lama')] : []).filter(Boolean); return { kategori: form.kategori, jenis: form.jenis, account_id: form.account_id || null, customer_id: form.customer_id || null, sales_id: form.sales_id || null, mode: form.mode || null, kontrak_id: form.kontrak_id || null, tiket_asal_id: form.tiket_asal_id || null, tanggal_transaksi: iso(form.tanggal_transaksi), tanggal_akhir: iso(form.tanggal_akhir), lokasi_internal: form.lokasi_internal || null, deskripsi: form.deskripsi || null, alasan: form.alasan || null, printer: lines, toner: form.jenis === 'toner_purchase' && form.toner_id ? [{ toner_id: form.toner_id, jumlah: Number(form.jumlah) }] : [] } }
-async function save() { saving.value = true; clearNotice(); try { if (selected.value) await request(`/tiket/${selected.value.id}`, { method: 'PUT', body: { deskripsi: form.deskripsi, alasan: form.alasan, hasil: form.hasil, lokasi_internal: form.lokasi_internal || null } }); else await request('/tiket', { method: 'POST', body: payload() }); createOpen.value = false; detailOpen.value = false; successMessage.value = 'Tiket berhasil disimpan.'; await loadTickets() } catch (error) { errorMessage.value = message(error, 'Tiket gagal disimpan.') } finally { saving.value = false } }
-async function action(kind: 'resolve' | 'cancel') { if (!selected.value || (kind === 'cancel' && !window.confirm('Batalkan tiket ini?'))) return; saving.value = true; clearNotice(); try { await request(`/tiket/${selected.value.id}/${kind}`, { method: 'POST', body: kind === 'resolve' ? { ringkasan_penyelesaian: form.hasil || null } : undefined }); detailOpen.value = false; successMessage.value = kind === 'resolve' ? 'Tiket selesai.' : 'Tiket dibatalkan.'; await loadTickets() } catch (error) { errorMessage.value = message(error, 'Workflow tiket gagal diproses.') } finally { saving.value = false } }
-
-watch([category, status, pageSize], () => { page.value = 1; loadTickets() })
-watch(search, value => { if (searchTimers.list) clearTimeout(searchTimers.list); searchTimers.list = setTimeout(() => { page.value = 1; loadTickets() }, 300) })
-watch(() => form.kategori, () => { form.jenis = availableKinds.value[0] || ''; form.printer_ids = [] })
-watch(() => searches.customer, value => debounceOption('customer', '/account/lokasi-customer', value))
-watch(() => searches.printer, value => debounceOption('printer', '/printer', value))
-watch(() => searches.sales, value => debounceOption('sales', '/pengguna', value))
-onMounted(async () => { await Promise.all([loadTickets(), loadBaseOptions()]) })
+type Row = Record<string, any>;
+const { request, message } = useServiceApi();
+const auth = useAuth();
+const role = computed(() =>
+  String(auth.user.value?.role || "")
+    .toLowerCase()
+    .replaceAll("-", "_"),
+);
+const owners: Record<string, string> = {
+  delivery: "sales_admin",
+  komplain: "sales_admin",
+  internal: "kepala_teknisi",
+  inbound: "warehouse",
+  maintenance: "kepala_teknisi",
+};
+const categories: Record<string, string> = {
+  delivery: "Delivery",
+  komplain: "Komplain",
+  internal: "Internal",
+  inbound: "Inbound",
+  maintenance: "Maintenance",
+};
+const statuses = ["new", "pending", "progress", "solved", "cancelled"];
+const canCreate = computed(
+  () => role.value === "admin" || Object.values(owners).includes(role.value),
+);
+const rows = ref<Row[]>([]);
+const total = ref(0);
+const page = ref(1);
+const pageSize = ref(10);
+const search = ref("");
+const category = ref<string>();
+const status = ref<string>();
+const loading = ref(false);
+const saving = ref(false);
+const errorMessage = ref("");
+const successMessage = ref("");
+const createOpen = ref(false);
+const detailOpen = ref(false);
+const stModalOpen = ref(false);
+const stTicketId = ref("");
+const detailTab = ref<"detil" | "surat_tugas">("detil");
+const selected = ref<Row | null>(null);
+const options = reactive<Record<string, Row[]>>({
+  customers: [],
+  printers: [],
+  sales: [],
+});
+const searches = reactive({ customer: "", printer: "", sales: "" });
+const loadingOptions = reactive({
+  customer: false,
+  printer: false,
+  sales: false,
+});
+const form = reactive({
+  kategori: "",
+  account_id: "",
+  customer_id: "",
+  sales_id: "",
+  tanggal_transaksi: "",
+  deskripsi: "",
+  printer_ids: [] as string[],
+});
+const salesItems = computed(() =>
+  options.sales
+    .filter(
+      (row) =>
+        ["sales"].includes(String(row.role || row.peran || "").toLowerCase()) &&
+        row.aktif !== false &&
+        row.active !== false,
+    )
+    .map((row) => ({
+      label: row.nama_lengkap || row.name || row.user_id,
+      value: row.id,
+    })),
+);
+const allowedCategories = computed(() =>
+  Object.keys(categories).filter(
+    (key) => role.value === "admin" || owners[key] === role.value,
+  ),
+);
+const customerRequired = computed(() =>
+  ["delivery", "komplain", "inbound", "maintenance"].includes(form.kategori),
+);
+const canCloseSelected = computed(() =>
+  Boolean(
+    selected.value &&
+      role.value === "admin" &&
+      !["solved", "cancelled"].includes(selected.value.status),
+  ),
+);
+const canEditSelected = computed(() =>
+  Boolean(
+    selected.value &&
+      (role.value === "admin" ||
+        owners[selected.value.kategori] === role.value) &&
+      !["solved", "cancelled"].includes(selected.value.status),
+  ),
+);
+const readyToClose = computed(() =>
+  Boolean(
+    selected.value?.surat_tugas?.length &&
+      selected.value.surat_tugas.every((st: Row) =>
+        ["solved", "cancelled"].includes(st.status),
+      ) &&
+      selected.value.surat_tugas.some((st: Row) => st.status === "solved"),
+  ),
+);
+function unwrap(response: Row): Row[] {
+  return Array.isArray(response?.data)
+    ? response.data
+    : response?.data?.items || [];
+}
+function dateTimeLocal() {
+  const now = new Date();
+  return new Date(now.getTime() - now.getTimezoneOffset() * 60000)
+    .toISOString()
+    .slice(0, 16);
+}
+function iso(value: string) {
+  return value ? new Date(value).toISOString() : null;
+}
+function clearNotice() {
+  errorMessage.value = "";
+  successMessage.value = "";
+}
+function resetForm() {
+  Object.assign(form, {
+    kategori: allowedCategories.value[0] || "",
+    account_id: "",
+    customer_id: "",
+    sales_id: "",
+    tanggal_transaksi: dateTimeLocal(),
+    deskripsi: "",
+    printer_ids: [],
+  });
+}
+function selectCustomer(id: string) {
+  const row = options.customers.find((item) => item.id === id);
+  form.account_id = row?.account_id || row?.master_account?.id || "";
+}
+async function loadTickets() {
+  loading.value = true;
+  try {
+    const q = new URLSearchParams({
+      halaman: String(page.value),
+      batas: String(pageSize.value),
+    });
+    if (search.value.trim()) q.set("cari", search.value.trim());
+    if (category.value) q.set("kategori", category.value);
+    if (status.value) q.set("status", status.value);
+    const r = await request<Row>(`/tiket?${q}`);
+    rows.value = unwrap(r);
+    total.value = r?.data?.meta?.total || 0;
+  } catch (e) {
+    errorMessage.value = message(e, "Daftar tiket gagal dimuat.");
+  } finally {
+    loading.value = false;
+  }
+}
+async function loadOption(path: string, key: string, term = "") {
+  loadingOptions[key as keyof typeof loadingOptions] = true;
+  try {
+    const q = new URLSearchParams({ halaman: "1", batas: "20" });
+    if (term.trim()) q.set("cari", term.trim());
+    const r = await request<Row>(`${path}?${q}`);
+    const results = unwrap(r);
+    if (key === "printers") {
+      const selectedUnits = options.printers.filter((unit) => form.printer_ids.includes(unit.id));
+      options.printers = [...new Map([...selectedUnits, ...results].map((unit) => [unit.id, unit])).values()];
+    } else if (key === "sales") {
+      const selectedSales = options.sales.filter((user) => user.id === form.sales_id);
+      options.sales = [...new Map([...selectedSales, ...results].map((user) => [user.id, user])).values()];
+    } else options[key] = results;
+  } catch (e) {
+    errorMessage.value = message(e, "Pilihan data gagal dimuat.");
+  } finally {
+    loadingOptions[key as keyof typeof loadingOptions] = false;
+  }
+}
+function openCreate() {
+  clearNotice();
+  selected.value = null;
+  resetForm();
+  createOpen.value = true;
+}
+async function openDetail(row: Row, tab: "detil" | "surat_tugas" = "detil") {
+  clearNotice();
+  try {
+    const r = await request<Row>(`/tiket/${row.id}`);
+    selected.value = r.data;
+    detailTab.value = tab;
+    Object.assign(form, {
+      deskripsi: selected.value.deskripsi || "",
+      customer_id: selected.value.customer_id || "",
+      account_id: selected.value.account_id || "",
+      sales_id: selected.value.sales_id || "",
+      tanggal_transaksi: selected.value.tanggal_transaksi
+        ? new Date(new Date(selected.value.tanggal_transaksi).getTime() - new Date(selected.value.tanggal_transaksi).getTimezoneOffset() * 60000).toISOString().slice(0, 16)
+        : "",
+      printer_ids: (selected.value.tiket_printer || []).map((line: Row) => line.printer_id).filter(Boolean),
+    });
+    const selectedUnits = (selected.value.tiket_printer || []).map((line: Row) => line.master_printer).filter(Boolean);
+    options.printers = [...new Map([...selectedUnits, ...options.printers].map((unit) => [unit.id, unit])).values()];
+    if (selected.value.sales_id && selected.value.master_pengguna_sales && !options.sales.some((user) => user.id === selected.value.sales_id)) options.sales = [selected.value.master_pengguna_sales, ...options.sales];
+    detailOpen.value = true;
+  } catch (e) {
+    errorMessage.value = message(e, "Detail tiket gagal dimuat.");
+  }
+}
+function payload() {
+  return {
+    kategori: form.kategori,
+    account_id: form.account_id || null,
+    customer_id: form.customer_id || null,
+    sales_id: form.sales_id || null,
+    tanggal_transaksi: iso(form.tanggal_transaksi),
+    deskripsi: form.deskripsi || null,
+    printer: options.printers
+      .filter((p) => form.printer_ids.includes(p.id))
+      .map((p) => ({
+        printer_id: p.id,
+        mp_no: p.mp_no,
+        model_id: p.model_id,
+        serial_number: p.serial_number,
+        peran: "utama",
+      })),
+    toner: [],
+  };
+}
+async function save() {
+  if (selected.value && !form.tanggal_transaksi) { errorMessage.value = "Tanggal Tiket wajib diisi."; return; }
+  saving.value = true;
+  clearNotice();
+  try {
+    if (selected.value)
+      await request(`/tiket/${selected.value.id}`, {
+        method: "PUT",
+        body: { sales_id: form.sales_id || undefined, tanggal_transaksi: iso(form.tanggal_transaksi), deskripsi: form.deskripsi },
+      });
+    else await request("/tiket", { method: "POST", body: payload() });
+    createOpen.value = false;
+    detailOpen.value = false;
+    successMessage.value = "Tiket berhasil disimpan.";
+    await loadTickets();
+  } catch (e) {
+    errorMessage.value = message(e, "Tiket gagal disimpan.");
+  } finally {
+    saving.value = false;
+  }
+}
+async function saveAndCreateSt() {
+  saving.value = true;
+  clearNotice();
+  try {
+    const response = await request<Row>("/tiket", {
+      method: "POST",
+      body: payload(),
+    });
+    const ticketId = response?.data?.id;
+    if (!ticketId)
+      throw new Error("Tiket berhasil dibuat tetapi ID tidak tersedia.");
+    createOpen.value = false;
+    stTicketId.value = ticketId;
+    stModalOpen.value = true;
+    await loadTickets();
+  } catch (e) {
+    errorMessage.value = message(e, "Tiket gagal disimpan.");
+  } finally {
+    saving.value = false;
+  }
+}
+function createStFromDetail() {
+  if (!selected.value?.id) return;
+  detailOpen.value = false;
+  stTicketId.value = selected.value.id;
+  stModalOpen.value = true;
+}
+async function onStCreated() {
+  const ticketId = stTicketId.value;
+  stModalOpen.value = false;
+  await loadTickets();
+  await openDetail({ id: ticketId }, "surat_tugas");
+}
+async function action(kind: "resolve") {
+  if (!selected.value) return;
+  saving.value = true;
+  clearNotice();
+  try {
+    await request(`/tiket/${selected.value.id}/${kind}`, {
+      method: "POST",
+      body: { ringkasan_penyelesaian: form.deskripsi || null },
+    });
+    detailOpen.value = false;
+    successMessage.value = "Tiket ditutup.";
+    await loadTickets();
+  } catch (e) {
+    errorMessage.value = message(e, "Workflow tiket gagal diproses.");
+  } finally {
+    saving.value = false;
+  }
+}
+let timers: Record<string, ReturnType<typeof setTimeout> | undefined> = {};
+function debounce(key: string, fn: () => void) {
+  if (timers[key]) clearTimeout(timers[key]);
+  timers[key] = setTimeout(fn, 300);
+}
+watch([category, status, pageSize], () => {
+  page.value = 1;
+  loadTickets();
+});
+watch(search, () =>
+  debounce("list", () => {
+    page.value = 1;
+    loadTickets();
+  }),
+);
+watch(
+  () => searches.customer,
+  (value) =>
+    debounce("customer", () =>
+      loadOption("/account/lokasi-customer", "customers", value),
+    ),
+);
+watch(
+  () => searches.printer,
+  (value) =>
+    debounce("printer", () => loadOption("/printer", "printers", value)),
+);
+watch(
+  () => searches.sales,
+  (value) => debounce("sales", () => loadOption("/pengguna", "sales", value)),
+);
+onMounted(async () => {
+  await Promise.all([
+    loadTickets(),
+    loadOption("/account/lokasi-customer", "customers"),
+    loadOption("/printer", "printers"),
+    loadOption("/pengguna", "sales"),
+  ]);
+});
 </script>
-
 <template>
   <div class="space-y-6">
-    <UPageHeader title="Tiket" description="Kelola delivery, komplain, internal, inbound, dan maintenance." />
-    <UAlert v-if="errorMessage" color="error" variant="subtle" :title="errorMessage" />
-    <UAlert v-if="successMessage" color="success" variant="subtle" :title="successMessage" />
-    <UCard><div class="flex flex-col gap-3 lg:flex-row lg:items-center"><UInput v-model="search" icon="i-lucide-search" placeholder="Cari nomor atau deskripsi" class="w-full lg:max-w-md" /><div class="flex flex-col gap-2 sm:flex-row"><USelect v-model="category" :items="Object.entries(categories).map(([value, label]) => ({ label, value }))" placeholder="Semua kategori" class="w-full sm:w-40" /><USelect v-model="status" :items="statuses.map(value => ({ label: value, value }))" placeholder="Semua status" class="w-full sm:w-36" /></div><div class="flex gap-2 lg:ms-auto"><UButton color="neutral" variant="outline" icon="i-lucide-refresh-cw" aria-label="Refresh data" :loading="loading" @click="loadTickets" /><UButton v-if="canCreate" icon="i-lucide-plus" label="Buat Tiket" @click="openCreate" /></div></div></UCard>
-    <UCard><div class="mb-4 flex items-center justify-between gap-2"><div><h2 class="font-semibold text-highlighted">Daftar Tiket</h2><p class="text-sm text-dimmed">{{ total }} tiket ditemukan</p></div><USelect v-model="pageSize" :items="[10, 20, 50].map(value => ({ label: `${value} baris`, value }))" class="w-32" /></div><UTable :data="rows" :columns="[{ accessorKey: 'nomor_tiket', header: 'No. Tiket' }, { accessorKey: 'kategori', header: 'Kategori' }, { accessorKey: 'jenis', header: 'Jenis' }, { accessorKey: 'master_customer', header: 'Customer' }, { accessorKey: 'tanggal_transaksi', header: 'Tanggal' }, { accessorKey: 'status', header: 'Status' }, { id: 'actions', header: 'Aksi' }]" :loading="loading"><template #kategori-cell="{ row }">{{ categories[row.original.kategori] || row.original.kategori }}</template><template #jenis-cell="{ row }">{{ kinds[row.original.jenis] || row.original.jenis }}</template><template #master_customer-cell="{ row }">{{ row.original.master_customer?.nama_customer || '—' }}</template><template #tanggal_transaksi-cell="{ row }">{{ row.original.tanggal_transaksi ? new Date(row.original.tanggal_transaksi).toLocaleDateString('id-ID') : '—' }}</template><template #status-cell="{ row }"><UBadge :color="row.original.status === 'solved' ? 'success' : row.original.status === 'cancelled' ? 'error' : 'info'" variant="subtle">{{ row.original.status }}</UBadge></template><template #actions-cell="{ row }"><UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-eye" aria-label="Lihat detail" @click="openDetail(row.original)" /></template><template #empty><div class="py-10 text-center text-sm text-dimmed">{{ loading ? 'Memuat data...' : 'Belum ada tiket.' }}</div></template></UTable><div class="mt-4 flex justify-end"><UPagination v-model:page="page" :page-count="pageSize" :total="total" @update:page="loadTickets" /></div></UCard>
-
-    <UModal v-model:open="createOpen" :title="selected ? 'Edit Tiket' : 'Buat Tiket'" :ui="{ content: 'sm:max-w-3xl' }"><template #body><UForm :state="form" class="space-y-4" @submit="save"><div v-if="!selected" class="grid gap-4 sm:grid-cols-2"><UFormField label="Kategori" required><USelect v-model="form.kategori" :items="allowedCategories.map(value => ({ label: categories[value] || value, value }))" class="w-full" /></UFormField><UFormField label="Jenis" required><USelect v-model="form.jenis" :items="availableKinds.map(value => ({ label: kinds[value] || value, value }))" class="w-full" /></UFormField></div><div v-if="!selected && customerRequired"><UFormField label="Customer / Site" required><USelectMenu v-model="form.customer_id" v-model:search-term="searches.customer" :items="customerItems" value-key="value" searchable ignore-filter :loading="loadingOptions.customer" :search-input="{ placeholder: 'Cari customer atau site' }" class="w-full" @update:model-value="selectCustomer" /></UFormField></div><UFormField v-if="!selected && ['delivery', 'komplain'].includes(form.kategori)" label="Sales" required><USelectMenu v-model="form.sales_id" v-model:search-term="searches.sales" :items="salesItems" value-key="value" searchable ignore-filter :loading="loadingOptions.sales" :search-input="{ placeholder: 'Cari sales' }" class="w-full" /></UFormField><div v-if="!selected" class="grid gap-4 sm:grid-cols-2"><UFormField label="Tanggal Tiket" required><UInput v-model="form.tanggal_transaksi" type="datetime-local" class="w-full" /></UFormField><UFormField v-if="['trial', 'event'].includes(form.jenis)" label="Tanggal Akhir" required><UInput v-model="form.tanggal_akhir" type="datetime-local" class="w-full" /></UFormField></div><div v-if="!selected && ['kontrak', 'back_up'].includes(form.jenis)" class="grid gap-4 sm:grid-cols-2"><UFormField label="Mode" required><USelect v-model="form.mode" :items="(form.jenis === 'kontrak' ? [{ label: 'Baru', value: 'baru' }, { label: 'Tukar', value: 'tukar' }] : [{ label: 'Sementara', value: 'sementara' }, { label: 'Permanen', value: 'permanen' }])" class="w-full" /></UFormField><UFormField v-if="form.jenis === 'kontrak' && form.mode === 'tukar'" label="Kontrak Aktif" required><USelect v-model="form.kontrak_id" :items="contractItems" placeholder="Pilih kontrak" class="w-full" /></UFormField></div><UFormField v-if="!selected && form.jenis === 'penerimaan_printer'" label="Unit Printer Baru" required><div class="space-y-3"><div v-for="(item, index) in form.newPrinters" :key="index" class="grid gap-3 rounded-lg border border-default p-3 sm:grid-cols-3"><UInput v-model="item.mp_no" placeholder="MP No" /><USelect v-model="item.model_id" :items="options.models.filter(row => row.id).map(row => ({ label: row.nama_model || '-', value: String(row.id) }))" placeholder="Model" /><UInput v-model="item.sumber" placeholder="Sumber / pemasok" /></div><UButton type="button" size="sm" color="neutral" variant="outline" icon="i-lucide-plus" @click="form.newPrinters.push({ mp_no: '', model_id: '', sumber: '' })">Tambah Unit</UButton></div></UFormField><UFormField v-if="!selected && form.jenis === 'toner_purchase'" label="Toner dan jumlah" required><div class="grid gap-3 sm:grid-cols-2"><USelect v-model="form.toner_id" :items="options.toners.filter(row => row.id).map(row => ({ label: row.nama_toner || '-', value: String(row.id) }))" placeholder="Pilih toner" /><UInput v-model.number="form.jumlah" type="number" min="1" /></div></UFormField><UFormField v-if="!selected && !['penerimaan_printer', 'toner_purchase'].includes(form.jenis)" label="Unit Printer" required><USelectMenu v-model="form.printer_ids" v-model:search-term="searches.printer" :items="availablePrinterItems" value-key="value" multiple searchable ignore-filter :loading="loadingOptions.printer" :search-input="{ placeholder: 'Cari MP No atau serial' }" class="w-full" /></UFormField><UFormField v-if="!selected && form.jenis === 'internal_use'" label="Divisi / Lokasi Internal" required><UInput v-model="form.lokasi_internal" class="w-full" /></UFormField><UFormField v-if="!selected && form.jenis === 'return'" label="Alasan Return" required><UInput v-model="form.alasan" class="w-full" /></UFormField><UFormField label="Deskripsi"><UTextarea v-model="form.deskripsi" class="w-full" :readonly="Boolean(selected?.pengaduan_lama_id)" /></UFormField><UFormField v-if="selected?.jenis === 'trial'" label="Hasil Trial"><USelect v-model="form.hasil" :items="[{ label: 'Berhasil', value: 'berhasil' }, { label: 'Gagal', value: 'gagal' }, { label: 'Batal', value: 'batal' }]" placeholder="Belum ada hasil" /></UFormField><UButton type="submit" block :loading="saving">{{ selected ? 'Simpan Perubahan' : 'Simpan Tiket' }}</UButton></UForm></template></UModal>
-
-    <UModal v-model:open="detailOpen" :title="selected?.nomor_tiket || 'Detail Tiket'" :ui="{ content: 'sm:max-w-3xl' }"><template #body><div v-if="selected" class="space-y-4"><div class="flex flex-wrap gap-2"><UBadge color="info" variant="subtle">{{ categories[selected.kategori] || selected.kategori || 'Tiket' }}</UBadge><UBadge color="neutral" variant="subtle">{{ kinds[selected.jenis] || selected.jenis || '-' }}</UBadge><UBadge :color="selected.status === 'solved' ? 'success' : selected.status === 'cancelled' ? 'error' : 'warning'" variant="subtle">{{ selected.status || '-' }}</UBadge></div><div class="flex gap-1 overflow-x-auto border-b border-default"><UButton size="sm" :variant="detailTab === 'general' ? 'soft' : 'ghost'" @click="detailTab = 'general'">General</UButton><UButton size="sm" :variant="detailTab === 'st' ? 'soft' : 'ghost'" @click="detailTab = 'st'">Surat Tugas ({{ selected.surat_tugas?.length || 0 }})</UButton></div><div v-if="detailTab === 'general'" class="space-y-4"><div class="grid gap-3 sm:grid-cols-3"><UCard><p class="text-xs text-dimmed">Customer</p><p class="font-medium text-highlighted">{{ selected.master_customer?.nama_customer || '—' }}</p></UCard><UCard><p class="text-xs text-dimmed">Account</p><p class="font-medium text-highlighted">{{ selected.master_account?.nama_account || '—' }}</p></UCard><UCard><p class="text-xs text-dimmed">Unit</p><p class="font-medium text-highlighted">{{ selected.tiket_printer?.length || 0 }}</p></UCard></div><UForm :state="form" class="space-y-3" @submit="save"><UFormField label="Deskripsi"><UTextarea v-model="form.deskripsi" class="w-full" :readonly="Boolean(selected.pengaduan_lama_id)" /></UFormField><UFormField v-if="selected.jenis === 'trial'" label="Hasil Trial"><USelect v-model="form.hasil" :items="[{ label: 'Berhasil', value: 'berhasil' }, { label: 'Gagal', value: 'gagal' }, { label: 'Batal', value: 'batal' }]" placeholder="Belum ada hasil" /></UFormField><div class="flex flex-wrap justify-end gap-2"><UButton v-if="canManageSelected" color="neutral" variant="outline" @click="action('cancel')">Batalkan Tiket</UButton><UButton v-if="canManageSelected" color="success" @click="action('resolve')">Resolve</UButton><UButton v-if="canManageSelected" type="submit" :loading="saving">Simpan</UButton></div></UForm></div><div v-else><UTable :data="selected.surat_tugas || []" :columns="[{ accessorKey: 'nomor_surat_tugas', header: 'Nomor' }, { accessorKey: 'jenis_tugas', header: 'Jenis' }, { accessorKey: 'status', header: 'Status' }]" :loading="loading"><template #empty><div class="py-8 text-center text-sm text-dimmed">Belum ada Surat Tugas.</div></template></UTable></div></div></template></UModal>
+    <UPageHeader
+      title="Tiket"
+      description="Kelola permintaan kerja dan kaitannya dengan Surat Tugas."
+    /><UAlert
+      v-if="errorMessage"
+      color="error"
+      variant="subtle"
+      :title="errorMessage"
+    /><UAlert
+      v-if="successMessage"
+      color="success"
+      variant="subtle"
+      :title="successMessage"
+    />
+    <UCard
+      ><div class="flex flex-wrap gap-3">
+        <UInput
+          v-model="search"
+          placeholder="Cari nomor atau deskripsi"
+          class="w-full lg:max-w-md"
+        /><USelect
+          v-model="category"
+          :items="
+            Object.entries(categories).map(([value, label]) => ({
+              label,
+              value,
+            }))
+          "
+          placeholder="Semua kategori"
+        /><USelect
+          v-model="status"
+          :items="statuses.map((value) => ({ label: value, value }))"
+          placeholder="Semua status"
+        /><UButton
+          v-if="canCreate"
+          class="ms-auto"
+          icon="i-lucide-plus"
+          label="Buat Tiket"
+          @click="openCreate"
+        /></div
+    ></UCard>
+    <UCard
+      ><UTable
+        :data="rows"
+        :columns="[
+          { accessorKey: 'nomor_tiket', header: 'No. Tiket' },
+          { accessorKey: 'kategori', header: 'Kategori' },
+          { accessorKey: 'master_customer', header: 'Customer' },
+          { accessorKey: 'status', header: 'Status' },
+          { id: 'actions', header: 'Aksi' },
+        ]"
+        :loading="loading"
+        ><template #kategori-cell="{ row }">{{
+          categories[row.original.kategori] || row.original.kategori
+        }}</template
+        ><template #master_customer-cell="{ row }">{{
+          row.original.master_customer?.nama_customer || "—"
+        }}</template
+        ><template #actions-cell="{ row }"
+          ><UButton
+            size="xs"
+            variant="ghost"
+            icon="i-lucide-pencil"
+            aria-label="Edit Tiket"
+            @click="openDetail(row.original)" /></template
+        ><template #empty
+          ><div class="py-10 text-center text-sm text-dimmed">
+            {{ loading ? "Memuat data..." : "Belum ada tiket." }}
+          </div></template
+        ></UTable
+      ><UPagination
+        v-model:page="page"
+        :page-count="pageSize"
+        :total="total"
+        class="mt-4 justify-end"
+    /></UCard>
+    <UModal
+      v-model:open="createOpen"
+      title="Buat Tiket"
+      :ui="{ content: 'sm:max-w-3xl' }"
+      ><template #body
+        ><UForm :state="form" class="space-y-4" @submit="save"
+          ><UFormField label="Kategori" required
+            ><USelect
+              v-model="form.kategori"
+              :items="
+                allowedCategories.map((value) => ({
+                  label: categories[value],
+                  value,
+                }))
+              "
+              class="w-full"
+          /></UFormField>
+          <p class="text-sm text-dimmed">
+            Jenis pekerjaan dipilih saat membuat Surat Tugas.
+          </p>
+          <UFormField v-if="customerRequired" label="Customer / Site" required
+            ><USelectMenu
+              v-model="form.customer_id"
+              v-model:search-term="searches.customer"
+              :items="
+                options.customers.map((row) => ({
+                  label: row.nama_customer || row.name,
+                  value: row.id,
+                }))
+              "
+              value-key="value"
+              searchable
+              ignore-filter
+              :loading="loadingOptions.customer"
+              class="w-full"
+              @update:model-value="selectCustomer" /></UFormField
+          ><UFormField
+            v-if="['delivery', 'komplain'].includes(form.kategori)"
+            label="Sales"
+            required
+            ><USelectMenu
+              v-model="form.sales_id"
+              v-model:search-term="searches.sales"
+              :items="salesItems"
+              value-key="value"
+              searchable
+              ignore-filter
+              :loading="loadingOptions.sales"
+              class="w-full" /></UFormField
+          ><UFormField label="Tanggal Tiket" required
+            ><UInput
+              v-model="form.tanggal_transaksi"
+              type="datetime-local"
+              class="w-full" /></UFormField
+          ><UFormField label="Unit Printer"
+            ><USelectMenu
+              v-model="form.printer_ids"
+              v-model:search-term="searches.printer"
+              :items="
+                options.printers.map((row) => ({
+                  label: `${row.mp_no} · ${row.master_printer_model?.nama_model || '-'}`,
+                  value: row.id,
+                }))
+              "
+              value-key="value"
+              multiple
+              searchable
+              ignore-filter
+              :loading="loadingOptions.printer"
+              class="w-full" /></UFormField
+          ><UFormField label="Deskripsi"
+            ><UTextarea v-model="form.deskripsi" class="w-full"
+          /></UFormField>
+          <div class="grid gap-2 sm:grid-cols-2">
+            <UButton type="submit" block :loading="saving">Simpan Tiket</UButton
+            ><UButton
+              type="button"
+              block
+              color="primary"
+              variant="outline"
+              :loading="saving"
+              @click="saveAndCreateSt"
+              >Buat Surat Tugas</UButton
+            >
+          </div></UForm
+        ></template
+      ></UModal
+    >
+    <UModal
+      v-model:open="detailOpen"
+      :title="selected?.nomor_tiket ? `Edit Tiket ${selected.nomor_tiket}` : 'Edit Tiket'"
+      :ui="{ content: 'sm:max-w-3xl h-[80vh] max-h-[800px]', body: 'overflow-y-auto' }"
+      ><template #body
+        ><div v-if="selected" class="flex flex-col gap-4 sm:flex-row">
+          <nav class="flex shrink-0 gap-2 sm:w-36 sm:flex-col" aria-label="Bagian Tiket">
+            <UButton :variant="detailTab === 'detil' ? 'soft' : 'ghost'" color="neutral" class="justify-start" @click="detailTab = 'detil'">Detil</UButton>
+            <UButton :variant="detailTab === 'surat_tugas' ? 'soft' : 'ghost'" color="neutral" class="justify-start" @click="detailTab = 'surat_tugas'">Surat Tugas ({{ selected.surat_tugas?.length || 0 }})</UButton>
+          </nav>
+          <div class="min-w-0 flex-1 space-y-4">
+          <div class="flex flex-wrap gap-2">
+            <UBadge color="neutral" variant="subtle">{{
+              selected.status
+            }}</UBadge
+            ><UBadge v-if="readyToClose" color="success" variant="subtle"
+              >Siap ditinjau untuk penutupan</UBadge
+            >
+          </div>
+          <div v-if="detailTab === 'detil'" class="space-y-4">
+            <UFormField label="Kategori"><UInput :model-value="categories[selected.kategori] || selected.kategori" readonly class="w-full" /></UFormField>
+            <UFormField label="Customer / Site"><UInput :model-value="selected.master_customer?.nama_customer || '—'" readonly class="w-full" /></UFormField>
+            <UFormField label="Unit Printer"><UInput :model-value="selected.tiket_printer?.map((line: Row) => line.mp_no).join(', ') || '—'" readonly class="w-full" /></UFormField>
+            <UFormField label="Tanggal Tiket"><UInput v-model="form.tanggal_transaksi" type="datetime-local" :readonly="!canEditSelected" class="w-full" /></UFormField>
+            <UFormField label="Sales"><USelectMenu v-model="form.sales_id" v-model:search-term="searches.sales" :items="salesItems" value-key="value" searchable ignore-filter :loading="loadingOptions.sales" :disabled="!canEditSelected" class="w-full" /></UFormField>
+            <UFormField label="Deskripsi"><UTextarea v-model="form.deskripsi" :readonly="!canEditSelected" class="w-full" /></UFormField>
+            <div class="flex justify-end gap-2">
+              <UButton v-if="canEditSelected" :loading="saving" @click="save">Simpan Perubahan</UButton>
+              <UButton v-if="canCloseSelected" color="warning" @click="action('resolve')">Tutup Tiket</UButton>
+            </div>
+          </div>
+          <div v-else class="space-y-4">
+            <UTable :data="selected.surat_tugas || []" :columns="[{ accessorKey: 'nomor_surat_tugas', header: 'Nomor ST' }, { accessorKey: 'jenis_tugas', header: 'Jenis Tugas' }, { accessorKey: 'status', header: 'Status' }]" />
+            <div class="flex justify-end">
+            <UButton
+              v-if="!['solved', 'cancelled'].includes(selected.status)"
+              color="primary"
+              variant="outline"
+              @click="createStFromDetail"
+              >Buat Surat Tugas</UButton
+            >
+            </div>
+          </div>
+          </div>
+        </div></template
+      ></UModal
+    >
+    <SuratTugasPage
+      v-if="stModalOpen"
+      embedded
+      :ticket-id="stTicketId"
+      @close="stModalOpen = false"
+      @created="onStCreated"
+    />
   </div>
 </template>

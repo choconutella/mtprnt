@@ -11,6 +11,33 @@
 - Menambahkan pencarian server pada pilihan Model Printer di modal Tambah/Edit Unit Printer, dengan hasil awal maksimal 20 dan label model terpilih tetap terlihat.
 - Menghapus kolom `Cadangan` dari tabel Stok Toner dan Stok Sparepart.
 
+## 2026-11-04
+
+### Changed
+
+- Membangun ulang dan menjalankan container `frontend` serta `service` dari root Compose.
+- Memperbarui export image `multiprint-frontend.tar` dan `multiprint-service.tar`.
+- Mengganti tombol View pada halaman `/surat-tugas` menjadi Edit. Form edit menggunakan form yang sama dengan pembuatan Surat Tugas, mengisi data ST terpilih, dan menyimpan perubahan melalui endpoint PUT Surat Tugas.
+- Menambahkan tab sidebar Detil dan Items pada popup Surat Tugas. Tab Items mendukung pemilihan printer serta penambahan toner/sparepart dengan gudang, jumlah, dan keterangan.
+- Tab Items kini menampilkan jumlah item dan daftar beberapa Toner/Sparepart. Penambahan item tersedia setelah ST dimulai, sesuai batas status pada service.
+- Tombol workflow Surat Tugas kini tersedia langsung pada tab Detil popup Edit dan status dimuat ulang setelah aksi berhasil.
+- Tombol workflow, termasuk Mulai dan Batalkan, kini sejajar dengan Simpan Surat Tugas pada footer modal.
+- Saat ST dapat dimulai, aksi Batalkan dipindahkan ke menu panah pada tombol Mulai.
+- Popup ST kini hanya menampilkan langkah workflow berikutnya; Batalkan berada pada panah dropdown langkah aktif, termasuk Siap Cetak dan Selesai Pekerjaan.
+- Setelah sebuah tahap selesai dan belum ada aksi lanjutan untuk peran pengguna, popup menampilkan nama tahap tersebut sebagai tombol nonaktif dengan menu Batalkan, tanpa label generik Aksi.
+- Mengubah daftar Toner/Sparepart pada tab Items modal Edit Surat Tugas menjadi tabel dengan kolom jenis, item, gudang, jumlah, keterangan, dan aksi.
+- Tab Items kini menyatukan printer, toner, dan sparepart dalam tabel; tombol Tambah Item membuka popup pemilihan jenis dan rincian item.
+- Pilihan Printer selalu tampil pada popup Tambah Item; untuk penerimaan printer baru, popup mengarahkan pengisian MP No dan model ke tab Detil.
+- Menetapkan dimensi popup Tambah Item agar tetap sama saat Jenis Item diganti, dengan area isi yang dapat digulir pada layar pendek.
+
+- Tombol Buat Surat Tugas di modal Tiket kini membuka form Surat Tugas sebagai popup di halaman Tiket, dengan tiket terpilih otomatis dan field Tiket baca saja. Setelah Surat Tugas disimpan, modal Edit Tiket terbuka pada tab Surat Tugas.
+
+- Modal Edit Tiket memiliki tab Detil dan Surat Tugas; Sales, tanggal tiket, dan deskripsi dapat diedit, sedangkan nomor, kategori, customer/site, dan unit printer hanya dibaca.
+
+- Mengubah alur Tiket agar Tiket baru tidak lagi memilih Jenis Pekerjaan; jenis tugas dipilih saat membuat Surat Tugas berdasarkan kategori Tiket.
+- Menambahkan rekomendasi siap ditinjau pada detail Tiket ketika seluruh Surat Tugas terkait telah selesai; penutupan tetap manual dan admin menjadi hak akses sementara.
+- Menyesuaikan service agar Tiket tanpa jenis tetap kompatibel dengan Tiket lama dan ST dapat memvalidasi jenis tugas berdasarkan kategori.
+
 ## 2026-11-02
 
 ### Changed
