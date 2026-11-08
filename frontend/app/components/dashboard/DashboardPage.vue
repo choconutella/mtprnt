@@ -155,7 +155,7 @@ const technicianLoad = computed(() => {
     .forEach((item) => {
       (item.teknisi_surat_tugas || item.teknisi || []).forEach(
         (assignment: Row) => {
-          const id = assignment.teknisi_id || assignment.id;
+          const id = assignment.master_pengguna?.id || assignment.teknisi_id || assignment.id;
           if (id) counts.set(id, (counts.get(id) || 0) + 1);
         },
       );

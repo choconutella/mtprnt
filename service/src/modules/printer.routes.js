@@ -7,6 +7,7 @@ const { autentikasi, izin, otorisasi } = require("../middlewares/auth");
 const { buatCrudRouter } = require("./crud");
 const { buatNomor } = require("../utils/nomor");
 const { catatAuditBarang } = require("./audit-barang.service");
+const { tanggalBangkok, tambahBulan } = require("./printer-maintenance.service");
 
 const kategoriSchema = z.object({
   kode_kategori: z.string().trim().min(1).max(50),
@@ -61,8 +62,8 @@ const include = {
 function formatUnit(item) {
   if (!item) return item;
   const status_operasional = item.kondisi === "in_repair" || item.surat_tugas?.length ? "Sedang Maintenance" :
-    item.lokasi_jenis === "customer" ? `Di Customer${item.master_customer?.nama_customer ? `: ${item.master_customer.nama_customer}` : ""}` :
-    item.lokasi_jenis === "gudang" ? "Di Gudang" :
+    item.lokasi_jenis === "customer" ? `${item.master_customer?.nama_customer ? ` ${item.master_customer.nama_customer}` : ""}` :
+    item.lokasi_jenis === "gudang" ? "Gudang" :
     item.lokasi_jenis === "transit" ? "Dalam Surat Tugas" :
     item.lokasi_jenis === "internal" ? "Internal" : "Nonaktif";
   const { surat_tugas, ...unit } = item;
@@ -74,9 +75,7 @@ function konflik(pesan) {
 }
 
 function cekJadwalMaintenance(data) {
-  if (Boolean(data.tanggal_maintenance_berikutnya) !== Boolean(data.interval_maintenance_bulan)) {
-    throw Object.assign(new Error("Tanggal maintenance berikutnya dan interval bulan harus diisi bersama."), { statusCode: 422 });
-  }
+  if (data.tanggal_maintenance_berikutnya && !data.interval_maintenance_bulan) throw Object.assign(new Error("Tanggal maintenance membutuhkan interval bulan."), { statusCode: 422 });
 }
 
 function dataUnit(body) {
@@ -87,6 +86,20 @@ function dataUnit(body) {
   };
 }
 
+async function jadwalDariInterval(tx, body, mpNo) {
+  const data = { ...body };
+  const last = data.interval_maintenance_bulan ? await tx.surat_tugas.findFirst({
+    where: { mp_no: mpNo, jenis_tugas: "maintenance", status: "solved" },
+    orderBy: { validasi_kepala_teknisi_pada: "desc" },
+    select: { validasi_kepala_teknisi_pada: true, tanggal_diperbarui: true }
+  }) : null;
+  const completedAt = last?.validasi_kepala_teknisi_pada || last?.tanggal_diperbarui;
+  data.tanggal_maintenance_berikutnya = completedAt
+    ? tambahBulan(tanggalBangkok(completedAt), data.interval_maintenance_bulan)
+    : null;
+  return data;
+}
+
 async function cekModel(modelId) {
   const model = await prisma.master_printer_model.findUnique({
     where: { id: modelId }, include: { master_printer_kategori: true }
@@ -94,11 +107,13 @@ async function cekModel(modelId) {
   if (!model?.aktif || !model.master_printer_kategori.aktif) {
     throw Object.assign(new Error("Pilih Model dan Kategori printer aktif."), { statusCode: 422 });
   }
+  return model;
 }
 
 async function cekKategori(kategoriId) {
   const kategori = await prisma.master_printer_kategori.findUnique({ where: { id: kategoriId } });
   if (!kategori?.aktif) throw Object.assign(new Error("Pilih Kategori printer aktif."), { statusCode: 422 });
+  return kategori;
 }
 
 const kategori = buatCrudRouter({
@@ -114,6 +129,7 @@ const kategori = buatCrudRouter({
 
 const model = buatCrudRouter({
   model: "master_printer_model",
+  businessKey: "kode_model",
   kolomCari: ["kode_model", "merek", "nama_model"],
   skemaBuat: modelSchema,
   skemaUbah: modelSchema.partial(),
@@ -122,11 +138,15 @@ const model = buatCrudRouter({
   listInclude: { master_printer_kategori: true },
   roleLihat: ["admin", "sales-admin", "kepala-teknisi", "teknisi", "warehouse"],
   staticRoleView: true,
-  beforeCreate: (data) => cekKategori(data.kategori_id),
+  beforeCreate: async (data) => {
+    const kategori = await cekKategori(data.kategori_id);
+    data.kategori_id = kategori.kode_kategori;
+  },
   beforeUpdate: async (data, req, existing) => {
     if (!data.kategori_id) return;
-    await cekKategori(data.kategori_id);
-    if (data.kategori_id !== existing.kategori_id && await prisma.master_printer.count({ where: { model_id: existing.id } })) {
+    const kategori = await cekKategori(data.kategori_id);
+    data.kategori_id = kategori.kode_kategori;
+    if (data.kategori_id !== existing.kategori_id && await prisma.master_printer.count({ where: { model_id: existing.kode_model } })) {
       throw konflik("Kategori Model yang sudah dipakai unit printer tidak bisa diubah.");
     }
   }
@@ -177,12 +197,12 @@ unit.get("/:id", lihat, asyncHandler(async (req, res) => {
 }));
 unit.post("/", izin("master_data", "create", "admin"), asyncHandler(async (req, res) => {
   const body = unitSchema.parse(req.body);
-  cekJadwalMaintenance(body);
-  await cekModel(body.model_id);
+  const model = await cekModel(body.model_id);
   const gudang = await prisma.master_gudang.findUnique({ where: { id: body.gudang_id } });
   if (!gudang?.aktif) return gagal(res, "Pilih Gudang aktif.", 422);
   const item = await prisma.$transaction(async (tx) => {
-    const created = await tx.master_printer.create({ data: { ...dataUnit(body), serial_number: body.serial_number || null, status: "available" }, include });
+    const input = { ...body, model_id: model.kode_model, gudang_id: gudang.kode_gudang };
+    const created = await tx.master_printer.create({ data: { ...dataUnit(await jadwalDariInterval(tx, input, body.mp_no)), serial_number: body.serial_number || null, status: "available" }, include });
     await catatAuditBarang(tx, req, { jenis_barang: "printer", aksi: "buat", sesudah: created, keterangan: "Unit printer dibuat di gudang." });
     return created;
   });
@@ -190,13 +210,14 @@ unit.post("/", izin("master_data", "create", "admin"), asyncHandler(async (req, 
 }));
 unit.put("/:id", izin("master_data", "update", "admin"), asyncHandler(async (req, res) => {
   const body = unitSchema.pick({ mp_no: true, serial_number: true, model_id: true, tanggal_pembelian: true, tanggal_maintenance_berikutnya: true, interval_maintenance_bulan: true, keterangan: true }).partial().parse(req.body);
-  if (body.model_id) await cekModel(body.model_id);
+  const model = body.model_id ? await cekModel(body.model_id) : null;
   if (body.serial_number === "") body.serial_number = null;
   const item = await prisma.$transaction(async (tx) => {
     const sebelum = await tx.master_printer.findUnique({ where: { id: req.params.id } });
     if (!sebelum) return null;
-    cekJadwalMaintenance({ ...sebelum, ...body });
-    const sesudah = await tx.master_printer.update({ where: { id: req.params.id }, data: { ...dataUnit(body), tanggal_diperbarui: new Date() }, include });
+    const changes = await jadwalDariInterval(tx, { ...body, ...(model ? { model_id: model.kode_model } : {}), interval_maintenance_bulan: body.interval_maintenance_bulan === undefined ? sebelum.interval_maintenance_bulan : body.interval_maintenance_bulan }, sebelum.mp_no);
+    cekJadwalMaintenance({ ...sebelum, ...changes });
+    const sesudah = await tx.master_printer.update({ where: { id: req.params.id }, data: { ...dataUnit(changes), tanggal_diperbarui: new Date() }, include });
     await catatAuditBarang(tx, req, { jenis_barang: "printer", aksi: "ubah", sebelum, sesudah, keterangan: "Data unit printer diperbarui." });
     return sesudah;
   });
@@ -222,26 +243,27 @@ async function ubahLokasi(req, res, kind) {
       const surat = await tx.surat_tugas.findUnique({ where: { id: current.surat_tugas_aktif_id } });
       if (surat?.status === "solved") throw konflik("Printer dari surat tugas selesai tidak bisa dikembalikan lewat aksi ini.");
     }
+    const targetGudang = body.gudang_id ? await tx.master_gudang.findUnique({ where: { id: body.gudang_id } }) : null;
     const next = await tx.master_printer.updateMany({
       where: { id: current.id, status: expected },
       data: kind === "withdraw"
         ? { status: "inactive", lokasi_jenis: "keluar", keterangan: body.alasan, tanggal_diperbarui: new Date() }
-        : { status: "available", lokasi_jenis: "gudang", gudang_id: body.gudang_id, surat_tugas_aktif_id: null, keterangan: body.alasan, tanggal_diperbarui: new Date() }
+        : { status: "available", lokasi_jenis: "gudang", gudang_id: targetGudang?.kode_gudang, surat_tugas_aktif_id: null, keterangan: body.alasan, tanggal_diperbarui: new Date() }
     });
     if (next.count !== 1) throw konflik("Status printer sudah berubah.");
     const mutasi = await tx.mutasi_stok.create({ data: {
       nomor_mutasi: buatNomor("MTP"),
       jenis_mutasi: kind === "transfer" ? "transfer" : kind === "return" ? "masuk" : "keluar",
       gudang_asal_id: current.gudang_id,
-      gudang_tujuan_id: kind === "withdraw" ? null : body.gudang_id,
+      gudang_tujuan_id: kind === "withdraw" ? null : targetGudang?.kode_gudang,
       jenis_referensi: "printer_unit",
       referensi_id: current.id,
       status: "terposting",
       keterangan: body.alasan,
-      dibuat_oleh: req.pengguna.id,
+      dibuat_oleh: req.pengguna.user_id,
       tanggal_terposting: new Date()
     } });
-    await tx.detail_mutasi_stok.create({ data: { mutasi_stok_id: mutasi.id, jenis_barang: "printer", printer_id: current.id, jumlah: 1, keterangan: body.alasan } });
+    await tx.detail_mutasi_stok.create({ data: { mutasi_stok_id: mutasi.id, jenis_barang: "printer", printer_id: current.mp_no, jumlah: 1, keterangan: body.alasan } });
     const sesudah = await tx.master_printer.findUnique({ where: { id: current.id }, include });
     await catatAuditBarang(tx, req, {
       jenis_barang: "printer",
@@ -249,7 +271,7 @@ async function ubahLokasi(req, res, kind) {
       sebelum: current,
       sesudah,
       referensi: { jenis: "mutasi_stok", id: mutasi.id, nomor: mutasi.nomor_mutasi },
-      perubahan: { gudang_asal_id: current.gudang_id, gudang_tujuan_id: kind === "withdraw" ? null : body.gudang_id, jumlah: 1 },
+      perubahan: { gudang_asal_id: current.gudang_id, gudang_tujuan_id: kind === "withdraw" ? null : targetGudang?.kode_gudang, jumlah: 1 },
       keterangan: body.alasan
     });
     return sesudah;

@@ -1,6 +1,7 @@
 const prisma = require("../config/prisma");
 const { buatNomor } = require("../utils/nomor");
 const { catatAudit } = require("./audit.service");
+const { kodeSuratTugas, suratTugasApi } = require("./surat-tugas-identitas");
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -52,32 +53,30 @@ async function buatSuratTugasMaintenance(now = new Date(), db = prisma) {
         if (printer?.status !== "installed" || printer.lokasi_jenis !== "customer" || !printer.account_id || !printer.customer_id || !printer.tanggal_maintenance_berikutnya ||
           !printer.interval_maintenance_bulan || printer.tanggal_maintenance_berikutnya > batas) return null;
         const active = await tx.surat_tugas.findFirst({
-          where: { printer_id: printer.id, jenis_pekerjaan: "maintenance", status: { notIn: ["solved", "cancelled"] } },
+          where: { mp_no: printer.mp_no, jenis_pekerjaan: "maintenance", status: { notIn: ["solved", "cancelled"] } },
           select: { id: true }
         });
         if (active) return null;
         const due = tanggalSaja(printer.tanggal_maintenance_berikutnya);
         const surat = await tx.surat_tugas.create({ data: {
-          nomor_surat_tugas: buatNomor("ST"),
+          id: buatNomor("ST"),
           mp_no: printer.mp_no,
-          account_id: printer.account_id,
-          customer_id: printer.customer_id,
-          printer_id: printer.id,
+          ...await kodeSuratTugas(tx, { account_id: printer.account_id, customer_id: printer.customer_id }),
           tanggal_jadwal: new Date(`${due}T09:00:00+07:00`),
           tanggal_maintenance_otomatis: printer.tanggal_maintenance_berikutnya,
           jenis_tugas: "maintenance",
           jenis_pekerjaan: "maintenance",
           catatan_masalah: "Maintenance terjadwal",
           status: "pending",
-          surat_tugas_printer: { create: { printer_id: printer.id, mp_no: printer.mp_no, model_id: printer.model_id, serial_number: printer.serial_number, peran: "utama" } }
+          surat_tugas_printer: { create: { mp_no: printer.mp_no, model_id: (await tx.master_printer_model.findUnique({ where: { id: printer.model_id }, select: { kode_model: true } })).kode_model, serial_number: printer.serial_number, peran: "utama" } }
         } });
         await catatAudit(tx, { pengguna: { nama: "Sistem" }, headers: {} }, {
-          jenis_dokumen: "surat_tugas", nomor_dokumen: surat.nomor_surat_tugas,
+          jenis_dokumen: "surat_tugas", nomor_dokumen: surat.id,
           tabel_sumber: "surat_tugas", id_sumber: surat.id, aksi: "buat",
           status_sesudah: surat.status, data_sesudah: surat,
           keterangan: `Surat tugas maintenance otomatis dibuat untuk jadwal ${due}.`
         });
-        return surat;
+        return suratTugasApi(tx, surat);
       });
       if (created) dibuat += 1;
     } catch (error) {

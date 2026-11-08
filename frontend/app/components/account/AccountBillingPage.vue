@@ -148,25 +148,16 @@ async function save() {
   }
 }
 
-async function remove(row: Billing, permanent = false) {
-  if (
-    !canWrite.value ||
-    !window.confirm(
-      `${permanent ? "Hapus permanen" : "Nonaktifkan"} Billing ${row.nama_account}?`,
-    )
-  )
-    return;
+async function toggleActive(row: Billing) {
+  if (!canWrite.value) return;
+  const nextStatus = !row.aktif;
+  if (!window.confirm(`${nextStatus ? "Aktifkan" : "Nonaktifkan"} Billing ${row.nama_account}?`)) return;
   try {
-    await request(`/account/${row.id}${permanent ? "/permanent" : ""}`, {
-      method: "DELETE",
-    });
-    successMessage.value = permanent
-      ? "Billing berhasil dihapus permanen."
-      : "Billing berhasil dinonaktifkan.";
-    if (permanent && rows.value.length === 1 && page.value > 1) page.value -= 1;
+    await request(`/account/${row.id}`, { method: "PUT", body: { aktif: nextStatus } });
+    successMessage.value = `Billing berhasil ${nextStatus ? "diaktifkan" : "dinonaktifkan"}.`;
     await loadRows();
   } catch (error) {
-    errorMessage.value = message(error, "Billing gagal diubah.");
+    errorMessage.value = message(error, `Billing gagal ${nextStatus ? "diaktifkan" : "dinonaktifkan"}.`);
   }
 }
 
@@ -271,13 +262,12 @@ onMounted(initialize);
               @click="openEdit(row.original)"
             />
             <UButton
-              v-if="row.original.aktif"
               size="xs"
-              color="warning"
+              :color="row.original.aktif ? 'warning' : 'success'"
               variant="ghost"
-              icon="i-lucide-power"
-              aria-label="Nonaktifkan Billing"
-              @click="remove(row.original)"
+              :icon="row.original.aktif ? 'i-lucide-power-off' : 'i-lucide-power'"
+              :aria-label="row.original.aktif ? 'Nonaktifkan Billing' : 'Aktifkan Billing'"
+              @click="toggleActive(row.original)"
             />
           </div>
           <span

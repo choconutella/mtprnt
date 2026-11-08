@@ -3,7 +3,7 @@
     "name": "multiprint",
     "summary": "Frontend Nuxt/Vue/Nuxt UI untuk operasi printer, tiket, surat tugas, stok, dan master data yang mengonsumsi service existing."
   },
-  "updated_at": "2026-11-06T00:00:00Z",
+  "updated_at": "2026-11-08T14:40:00Z",
   "active_task_id": "task-003",
   "tasks": [
     {
@@ -57,7 +57,9 @@
       "implementation_notes": [
         "Scaffold Nuxt UI resmi dibuat dengan @nuxt/ui 4.12.0, Nuxt 4.6.3, Tailwind CSS 4.3.3, dan pnpm lockfile.",
         "Lint, typecheck, dan production build berhasil; build memberi warning jaringan font eksternal dan symlink Windows tetapi exit code 0.",
-        "Backend existing tetap read-only tanpa approval."
+        "Backend existing tetap read-only tanpa approval.",
+        "Penghapusan unit printer pada Items ST diperbaiki melalui endpoint DELETE unit printer; UI menandai baris yang dihapus dan PUT tidak lagi mengirim field identitas printer immutable.",
+        "Simpan Items ST dari Tiket tidak lagi mengirim printer_id/mp_no ke PUT identitas Surat Tugas, sehingga printer komplain dan printer bawaan tidak tertukar dalam validasi."
       ],
       "blockers": [],
       "owner": "codex",
@@ -251,11 +253,272 @@
         ,"Menambahkan PUT Surat Tugas alur baru untuk menyimpan hasil pekerjaan dari popup Edit, sambil menolak perubahan relasi/jenis yang belum didukung secara eksplisit."
         ,"Menjadikan tab Detil Surat Tugas solved sebagai field readonly yang tetap tampil normal, menyembunyikan Simpan/Tambah Item, dan mempertahankan navigasi tab."
         ,"Merapikan markup template komponen frontend dengan indentasi 2 spasi dan atribut tag per baris; ekspresi, skrip, dan perilaku aplikasi dipertahankan."
+        ,"Memulihkan GET daftar dan detail Surat Tugas pada router baru setelah router legacy dihapus; respons tetap diterjemahkan ke identitas API dan dibatasi menurut role pengguna."
+        ,"Memperbaiki validasi Account/Customer saat membuat ST Onsite Service dari Tiket Komplain dengan translasi UUID request ke kode referensi internal sebelum dibandingkan dengan Tiket."
+        ,"Mengubah kontrak form dan API Surat Tugas agar account_id/customer_id memakai kode Account/Customer; helper identitas dan validasi backend ikut disesuaikan."
+        ,"Memperbaiki filter pencarian printer pada form ST agar memakai UUID Customer yang dibutuhkan endpoint /printer, sementara payload ST tetap mengirim kode Customer; detail validasi pembuatan ditampilkan."
+        ,"Memperbaiki aksi Konfirmasi Pengembalian serta validasi lokasi dan kontrak unit agar UUID master Account/Customer dipakai pada tabel terkait, bukan kode referensi ST."
+        ,"Membatasi tab Unit Printer hanya untuk jenis Surat Tugas Repair, On-site Service, dan Maintenance pada frontend baru dan UI lama."
+        ,"Memisahkan printer objek Tiket dari tampilan Items saat membuat dan membuka kembali ST On-site Service."
+        ,"Menerapkan rancangan workflow baru per jenis ST, termasuk perpindahan penyelesaian printer pengiriman ke Selesai Pekerjaan dan penggabungan Terima Tukar/Terima Unit Rusak ke Return."
+        ,"Mengisi field Unit Lama Back-up bertiket dari MP No printer pada Tiket dan menampilkannya readonly."
+        ,"Menormalkan tanggal kosong pada form Unit Printer menjadi null sebelum dikirim ke endpoint printer."
+        ,"Mempertahankan field Interval Maintenance pada form Unit Printer dan mengizinkan nilainya tanpa Tanggal Maintenance Berikutnya; tanggal tetap membutuhkan interval di backend."
+        ,"Memperbaiki error database saat menyimpan interval maintenance dengan menghitung tanggal berikutnya otomatis sesuai aturan penyimpanan printer."
+        ,"Mengubah sumber jadwal maintenance ke tanggal Resolve ST Maintenance terakhir ditambah interval, menyiapkan migration 022 agar tanggal nullable, dan menyelaraskan data lama."
       ],
       "blockers": [],
       "owner": "codex",
       "created_at": "2026-11-01T00:00:00Z",
       "updated_at": "2026-11-01T00:00:00Z"
+    },
+    {
+      "id": "task-004",
+      "title": "Rename tabel item surat tugas",
+      "status": "completed",
+      "priority": "medium",
+      "type": "database",
+      "summary": "Ubah nama tabel fisik pemakaian_barang_surat_tugas menjadi surat_tugas_item tanpa mengubah kontrak Prisma dan API.",
+      "dependencies": [],
+      "verification_criteria": [
+        "Schema Prisma valid dengan mapping ke tabel baru",
+        "Database lokal memiliki surat_tugas_item dan tidak lagi memiliki tabel lama",
+        "Jumlah baris item dan referensi audit lama terverifikasi"
+      ],
+      "changed_files": [
+        "service/prisma/schema.prisma",
+        "service/database/init/013_surat_tugas_item.sql",
+        "service/src/modules/surat-tugas.routes.js",
+        "tasks.json",
+        "decisions.md",
+        "changelogs.md"
+      ],
+      "implementation_notes": [
+        "Migrasi transaksional diterapkan pada PostgreSQL lokal Compose; tabel berisi 0 baris sebelum dan sesudah rename.",
+        "Nama model/relasi Prisma dan respons API tetap lama untuk kompatibilitas; audit baru dan historis memakai surat_tugas_item.",
+        "Prisma validate, pemeriksaan sintaks JavaScript, dan pembuatan ulang Prisma Client lulus. Backend dev lokal dijalankan kembali dan query Prisma ke tabel baru berhasil."
+      ],
+      "blockers": [],
+      "owner": "codex",
+      "created_at": "2026-11-06T15:25:32Z",
+      "updated_at": "2026-11-06T15:30:37Z"
+    },
+    {
+      "id": "task-005",
+      "title": "Hapus relasi pengaduan_id dari Surat Tugas",
+      "status": "completed",
+      "priority": "high",
+      "type": "database",
+      "summary": "Pindahkan alur Komplain lama ke tiket_id, hapus field API pengaduan_id dan kolom surat_tugas.pengaduan_id tanpa memutus alur yang berjalan.",
+      "dependencies": ["task-004"],
+      "verification_criteria": [
+        "Migrasi menjaga relasi Komplain lama melalui Tiket sebelum kolom dihapus",
+        "Schema Prisma dan service dapat membaca Surat Tugas setelah migrasi",
+        "UI lama memakai tiket_id dan alur Komplain tetap dapat menampilkan Surat Tugas",
+        "Pemeriksaan service dan UI yang relevan lulus"
+      ],
+      "changed_files": [
+        "service/database/init/013_surat_tugas_item.sql",
+        "service/prisma/schema.prisma",
+        "service/src/modules/surat-tugas.routes.js",
+        "service/src/modules/pengaduan.routes.js",
+        "ui/src/views/DashboardView.vue",
+        "docs/contracts/README.md",
+        "tasks.json",
+        "decisions.md",
+        "changelogs.md"
+      ],
+      "implementation_notes": [
+        "API lama pengaduan_id dihapus sesuai pilihan user; UI lama dialihkan ke tiket_id.",
+        "Migrasi 013 membackfill Tiket Komplain yang belum ada, memindahkan relasi Surat Tugas, lalu menghapus kolom.",
+        "Delta migrasi diterapkan pada PostgreSQL lokal; 6 Surat Tugas tetap terbaca dan 4 tiket_id tetap terisi. Prisma validate dan generate lulus; backend lokal kembali sehat.",
+        "Build UI lama dan 4 test unit service lulus. Uji transaksi Komplain–Tiket–Surat Tugas termasuk sinkronisasi status lulus dan dibatalkan tanpa menyimpan data uji.",
+        "Skrip 013 berhasil dijalankan ulang pada database lokal yang sudah menjalankan tahap rename sebelumnya."
+      ],
+      "blockers": [],
+      "owner": "codex",
+      "created_at": "2026-11-06T16:04:54Z",
+      "updated_at": "2026-11-06T16:21:21Z"
+    },
+    {
+      "id": "task-006",
+      "title": "Ubah kunci dan referensi Surat Tugas",
+      "status": "completed",
+      "priority": "high",
+      "type": "database",
+      "summary": "Jadikan nomor ST sebagai id utama, UUID lama sebagai slug, dan simpan kode Account, Customer, Tiket, serta Gudang pada Surat Tugas.",
+      "dependencies": ["task-005"],
+      "verification_criteria": [
+        "Data dan seluruh foreign key Surat Tugas tetap konsisten setelah migrasi",
+        "API Surat Tugas menggunakan nomor ST sebagai id dan tetap menerima UUID untuk referensi master",
+        "Alur service dan frontend Surat Tugas lulus pemeriksaan yang relevan"
+      ],
+      "changed_files": ["service/database/init/014_surat_tugas_keys.sql", "service/prisma/schema.prisma", "service/src/modules/surat-tugas-identitas.js", "service/src/modules/surat-tugas-baru.routes.js", "service/src/modules/surat-tugas.routes.js", "service/src/modules/printer-maintenance.service.js", "service/src/modules/account.routes.js", "service/src/modules/stok.schema.js", "service/src/modules/tiket.routes.js", "service/src/modules/pengaduan.routes.js", "docs/contracts/README.md", "decisions.md", "changelogs.md", "tasks.json"],
+      "implementation_notes": ["User menyetujui kode Customer unik global, slug UUID lama, pergantian ID API dan foreign key anak ke nomor ST, serta truncate bila diperlukan.", "Migrasi 014 diterapkan pada PostgreSQL lokal tanpa truncate; 6 ST tetap ada, empat relasi anak dan 17 audit ST terpetakan tanpa orphan.", "Prisma validate dan generate lulus; endpoint kesehatan, daftar dan detail ST lokal merespons 200 dengan id nomor ST dan slug UUID. Empat test unit service lulus. Uji pembuatan ST dan relasi teknisi dalam transaksi rollback juga lulus."],
+      "blockers": [],
+      "owner": "codex",
+      "created_at": "2026-11-06T16:36:58Z",
+      "updated_at": "2026-11-06T17:00:52Z"
+    },
+    {
+      "id": "task-007",
+      "title": "Ganti referensi printer Surat Tugas ke MP No",
+      "status": "completed",
+      "priority": "high",
+      "type": "database",
+      "summary": "Hapus kolom fisik surat_tugas.printer_id dan gunakan mp_no untuk relasi printer sambil menjaga API dan penerimaan unit baru.",
+      "dependencies": ["task-006"],
+      "verification_criteria": ["Migrasi lokal menjaga data Surat Tugas", "Maintenance otomatis dan penerimaan unit baru tetap berjalan", "Kontrak API dan Prisma Client sesuai skema baru"],
+      "changed_files": ["service/database/init/015_surat_tugas_printer_mp_no.sql", "service/prisma/schema.prisma", "service/src/modules/surat-tugas-identitas.js", "service/src/modules/surat-tugas.routes.js", "service/src/modules/surat-tugas-baru.routes.js", "service/src/modules/printer-maintenance.service.js", "docs/contracts/README.md", "decisions.md", "changelogs.md", "tasks.json"],
+      "implementation_notes": ["MP No master printer unik; migrasi 015 diterapkan pada PostgreSQL lokal tanpa truncate. Data 6 ST tetap terbaca. Penerimaan printer baru menyimpan MP No pada baris unit sampai master dibuat.", "Prisma validate/generate, empat test unit, pembacaan ST lama, uji foreign key dan uji penerimaan unit baru dalam transaksi rollback lulus."],
+      "blockers": [],
+      "owner": "codex",
+      "created_at": "2026-11-07T00:00:00Z",
+      "updated_at": "2026-11-06T21:42:14Z"
+    },
+    {
+      "id": "task-008",
+      "title": "Hubungkan unit Surat Tugas ke MP No dan kode model",
+      "status": "completed",
+      "priority": "high",
+      "type": "database",
+      "summary": "Hapus printer_id fisik pada baris unit ST, gunakan MP No dan kode model sebagai foreign key, dan daftarkan printer baru saat ST dibuat.",
+      "dependencies": ["task-007"],
+      "verification_criteria": ["Baris unit lama tetap terbaca setelah migrasi", "Pembuatan ST penerimaan membuat unit master tidak aktif dan penerimaan mengaktifkannya", "UI dan API mempertahankan alur yang ada"],
+      "changed_files": ["service/database/init/016_surat_tugas_printer_codes.sql", "service/prisma/schema.prisma", "service/src/modules/surat-tugas-identitas.js", "service/src/modules/surat-tugas-baru.routes.js", "service/src/modules/printer-maintenance.service.js", "ui/src/views/surat-tugas/SuratTugasBaruPage.vue", "docs/contracts/README.md", "decisions.md", "changelogs.md", "tasks.json"],
+      "implementation_notes": ["Migrasi 016 diterapkan pada PostgreSQL lokal tanpa truncate; dua baris unit lama tetap terbaca dan model_id fisik berisi kode_model.", "Prisma validate/generate, empat unit test service, build UI, dan uji transaksi pembuatan master tidak aktif hingga aktivasi penerimaan lulus.", "Smoke test UI berjalan sampai halaman ST tetapi berhenti karena data uji tidak memiliki baris Penerimaan Printer yang diharapkan; build dan pemeriksaan kode lulus."],
+      "blockers": [],
+      "owner": "codex",
+      "created_at": "2026-11-06T22:01:58Z",
+      "updated_at": "2026-11-06T22:01:58Z"
+    },
+    {
+      "id": "task-009",
+      "title": "Hapus rincian toner dari Tiket",
+      "status": "completed",
+      "priority": "high",
+      "type": "database",
+      "summary": "Hapus tiket_barang dan catat toner hanya sebagai item Surat Tugas.",
+      "dependencies": ["task-008"],
+      "verification_criteria": ["Tiket toner dapat dibuat tanpa item", "ST pengiriman toner mewajibkan item sebelum barang keluar", "Database lokal tidak memiliki tiket_barang dan API tetap sehat"],
+      "changed_files": ["service/database/init/017_drop_tiket_barang.sql", "service/prisma/schema.prisma", "service/src/modules/tiket.routes.js", "service/src/modules/surat-tugas-baru.routes.js", "ui/src/views/tiket/TiketPage.vue", "docs/contracts/README.md", "decisions.md", "changelogs.md", "tasks.json"],
+      "implementation_notes": ["tiket_barang lokal berisi nol baris sebelum dihapus. Skrip 017 menolak drop pada database lain yang masih berisi data.", "Prisma validate/generate, empat test unit service, build UI, git diff --check, dan endpoint kesehatan lokal lulus."],
+      "blockers": [],
+      "owner": "codex",
+      "created_at": "2026-11-06T22:21:43Z",
+      "updated_at": "2026-11-06T22:21:43Z"
+    },
+    {
+      "id": "task-010",
+      "title": "Simpan satu MP No objek pada Tiket",
+      "status": "completed",
+      "priority": "high",
+      "type": "database",
+      "summary": "Pindahkan objek printer ke tiket.mp_no dan hapus tiket_printer; unit pengganti dicatat pada Surat Tugas.",
+      "dependencies": ["task-009"],
+      "verification_criteria": ["Data Tiket lama berpindah ke mp_no", "Tabel tiket_printer hilang dan indeks Tiket ada", "Alur TUKAR, BACK-UP, dan penerimaan printer tetap berjalan"],
+      "changed_files": ["service/database/init/018_tiket_mp_no.sql", "service/prisma/schema.prisma", "service/src/modules/tiket.routes.js", "service/src/modules/surat-tugas-baru.routes.js", "service/src/modules/pengaduan.routes.js", "frontend/app/components/tiket/TiketPage.vue", "frontend/app/components/surat-tugas/SuratTugasPage.vue", "ui/src/views/tiket/TiketPage.vue", "ui/src/views/surat-tugas/SuratTugasBaruPage.vue", "docs/contracts/README.md", "decisions.md", "changelogs.md", "tasks.json"],
+      "implementation_notes": ["Migrasi lokal mengisi dua Tiket lama dan menghapus tabel tiket_printer tanpa truncate; indeks idx_tiket_mp_no terpasang.", "Prisma validate/generate, pembacaan Tiket melalui Client baru, build UI lama, build Nuxt, dan git diff --check lulus.", "Tes printer dan import terhenti saat login karena kata sandi akun uji lokal tidak cocok; smoke test UI lama terhalang akses localhost dari runner. Lint dan typecheck Nuxt menunjukkan ribuan masalah gaya dan sejumlah masalah tipe yang sudah ada di proyek."],
+      "blockers": [],
+      "owner": "codex",
+      "created_at": "2026-11-07T00:00:00Z",
+      "updated_at": "2026-11-07T00:00:00Z"
+    },
+    {
+      "id": "task-011",
+      "title": "Hapus alur Pengaduan lama",
+      "status": "completed",
+      "priority": "high",
+      "type": "database",
+      "summary": "Hapus tabel pengaduan dan pindahkan seluruh alur masalah ke Tiket kategori komplain.",
+      "dependencies": ["task-010"],
+      "verification_criteria": ["Migration berhenti bila data pengaduan atau Tiket legacy masih ada", "Tabel pengaduan dan pengaduan_lama_id hilang", "Service tidak lagi memanggil model atau endpoint pengaduan", "Prisma Client dan endpoint kesehatan tetap berjalan"],
+      "changed_files": ["service/database/init/019_drop_pengaduan.sql", "service/prisma/schema.prisma", "service/src/app.js", "service/src/modules/account.routes.js", "service/src/modules/audit.routes.js", "service/src/modules/pengaduan.routes.js", "service/src/modules/sla.service.js", "service/src/modules/surat-tugas.routes.js", "service/src/modules/surat-tugas-baru.routes.js", "service/src/modules/tiket.routes.js", "docs/contracts/README.md", "decisions.md", "changelogs.md", "tasks.json"],
+      "implementation_notes": ["Database lokal memiliki nol baris pengaduan dan nol Tiket legacy; migration 019 berhasil menghapus tabel, kolom relasi, trigger, fungsi, dan enum.", "Prisma validate/generate dan pemeriksaan sintaks service lulus. Route lama dihapus dari app; alur aktif menggunakan Tiket komplain."],
+      "blockers": [],
+      "owner": "codex",
+      "created_at": "2026-11-07T00:00:00Z",
+      "updated_at": "2026-11-07T00:00:00Z"
+    },
+    {
+      "id": "task-012",
+      "title": "Rename relasi teknisi Surat Tugas",
+      "status": "completed",
+      "priority": "high",
+      "type": "database",
+      "summary": "Rename tabel teknisi_surat_tugas menjadi surat_tugas_teknisi dan arahkan teknisi_id ke master_pengguna.user_id.",
+      "dependencies": ["task-011"],
+      "verification_criteria": ["Tabel baru tersedia dan tabel lama hilang", "Foreign key teknisi_id mengarah ke master_pengguna.user_id", "API dan dashboard tetap menerjemahkan identitas teknisi dengan benar"],
+      "changed_files": ["service/database/init/020_surat_tugas_teknisi_user_id.sql", "service/prisma/schema.prisma", "service/src/modules/surat-tugas-baru.routes.js", "service/src/modules/tiket.routes.js", "frontend/app/components/surat-tugas/SuratTugasPage.vue", "frontend/app/components/dashboard/DashboardPage.vue", "docs/contracts/README.md", "decisions.md", "changelogs.md", "tasks.json"],
+      "implementation_notes": ["Migrasi lokal berhasil; enam assignment dipetakan ke user_id tech001, tabel lama tidak ada, dan foreign key baru aktif.", "Prisma validate/generate dan pemeriksaan sintaks service lulus. Query Prisma runtime tidak dijalankan karena koneksi Node ke PostgreSQL lokal tidak tersedia dari runner, sementara pemeriksaan psql read-only berhasil."],
+      "blockers": [],
+      "owner": "codex",
+      "created_at": "2026-11-07T00:00:00Z",
+      "updated_at": "2026-11-07T00:00:00Z"
+    },
+    {
+      "id": "task-013",
+      "title": "Ubah identitas dan referensi Tiket",
+      "status": "completed",
+      "priority": "high",
+      "type": "database",
+      "summary": "Gunakan nomor tiket sebagai primary key id, simpan UUID lama sebagai slug, dan pindahkan seluruh referensi ke kode master/user_id dengan owner sebagai pengganti sales_id.",
+      "dependencies": ["task-012"],
+      "verification_criteria": ["Tabel tiket memiliki PK id berisi nomor tiket dan slug UUID unik", "Foreign key account/customer/owner/dibuat_oleh memakai kolom kode atau user_id", "Relasi Surat Tugas, kontrak, tiket lanjutan, API, dan audit tetap berjalan"],
+      "changed_files": ["service/database/init/021_tiket_identitas_kode.sql", "service/prisma/schema.prisma", "service/src/modules/tiket.routes.js", "service/src/modules/surat-tugas-baru.routes.js", "service/src/modules/surat-tugas-identitas.js", "service/src/modules/sla.service.js", "docs/contracts/README.md", "decisions.md", "changelogs.md", "tasks.json"],
+      "implementation_notes": ["Migrasi lokal berhasil pada dua tiket: PK baru berisi nomor tiket, slug mempertahankan UUID lama, Account MK001, Customer MK001-01, Owner YPT, dan Pembuat admin.", "Prisma validate/generate, pemeriksaan sintaks service, constraint read-only, dan git diff --check lulus. API owner memakai UUID sebagai input dengan translasi ke user_id; alias lama tetap dikembalikan sementara."],
+      "blockers": [],
+      "owner": "codex",
+      "created_at": "2026-11-07T00:00:00Z",
+      "updated_at": "2026-11-07T00:00:00Z"
+    },
+    {
+      "id": "task-014",
+      "title": "Terapkan skema business key dan slug database",
+      "status": "completed",
+      "priority": "high",
+      "type": "database",
+      "summary": "Terapkan database-schema-edit.md dengan slug UUID pada master, kode bisnis sebagai key operasional, dan kompatibilitas API/service.",
+      "dependencies": ["task-013"],
+      "verification_criteria": ["master_pengguna tidak ditruncate", "foreign key business key aktif", "Prisma Client berhasil dibuat", "base endpoint utama merespons 200", "endpoint create master dan posting mutasi stok berhasil"],
+      "changed_files": ["service/database/init/023_business_key_schema.sql", "service/prisma/schema.prisma", "service/src/modules/crud.js", "service/src/modules/master.routes.js", "service/src/modules/printer.routes.js", "service/src/modules/stok.schema.js", "service/src/modules/stok.service.js", "service/src/modules/stok.routes.js", "service/src/modules/mutasi-stok.routes.js", "service/src/modules/audit.service.js", "service/src/modules/audit-barang.service.js"],
+      "implementation_notes": ["Tabel non-pengguna pada database lokal ditruncate; tiga baris master_pengguna dipertahankan dan user_id menjadi key fisik id dengan UUID lama digantikan slug.", "API tetap menerima identifier UUID master dan service menerjemahkannya ke kode bisnis untuk foreign key database.", "Smoke test read-only seluruh base endpoint utama lulus; pembuatan kategori, model, gudang, toner, sparepart, account, unit printer, dan posting mutasi stok lulus.", "Test printer integration lokal tidak dapat memakai localhost dari runner; test katalog yang dijalankan menunjukkan kegagalan assertion yang sudah terkait perubahan workflow Return pada working tree sebelumnya."],
+      "blockers": [],
+      "owner": "codex",
+      "created_at": "2026-11-08T13:20:00Z",
+      "updated_at": "2026-11-08T13:20:00Z"
+    },
+    {
+      "id": "task-015",
+      "title": "Jadikan admin sebagai superuser",
+      "status": "completed",
+      "priority": "high",
+      "type": "security",
+      "summary": "Pastikan admin melewati seluruh pemeriksaan permission dan dapat mengelola semua master data serta workflow.",
+      "dependencies": ["task-014"],
+      "verification_criteria": ["admin bypass middleware izin", "normalisasi role case-insensitive", "admin berhasil membuat Toner, Sparepart, dan Gudang", "fixture pengujian dibersihkan"],
+      "changed_files": ["service/src/utils/roles.js", "frontend/app/composables/useAuth.ts", "decisions.md", "changelogs.md", "tasks.json"],
+      "implementation_notes": ["Middleware backend sudah memiliki bypass admin; normalisasi role diperkuat agar variasi kapitalisasi/spasi tidak menghilangkan akses.", "Smoke test endpoint pembuatan Toner, Sparepart, dan Gudang dengan akun admin berhasil HTTP 201; tiga fixture uji kemudian dihapus."],
+      "blockers": [],
+      "owner": "codex",
+      "created_at": "2026-11-08T13:35:00Z",
+      "updated_at": "2026-11-08T13:35:00Z"
+    },
+    {
+      "id": "task-016",
+      "title": "Perbaiki penyimpanan Customer setelah migrasi key",
+      "status": "completed",
+      "priority": "high",
+      "type": "backend",
+      "summary": "Selaraskan foreign key Customer dengan kode Account dan pertahankan UUID pada API.",
+      "dependencies": ["task-014"],
+      "verification_criteria": ["POST Customer berhasil", "Customer muncul dalam daftar", "PUT Customer berhasil", "fixture uji dibersihkan"],
+      "changed_files": ["service/src/modules/account.routes.js", "changelogs.md", "tasks.json"],
+      "implementation_notes": ["Log menunjukkan P2003 master_customer_account_fkey karena UUID Billing ditulis ke kolom account_id yang kini menyimpan kode Account.", "Smoke test create, list, update berhasil; Billing dan Customer uji dihapus melalui endpoint Account."],
+      "blockers": [],
+      "owner": "codex",
+      "created_at": "2026-11-08T14:40:00Z",
+      "updated_at": "2026-11-08T14:40:00Z"
     }
   ]
 }

@@ -19,7 +19,10 @@ export function useAuth() {
   const errorMessage = useState('auth:error', () => '')
   const hasToken = computed(() => import.meta.client && Boolean(localStorage.getItem(TOKEN_KEY)))
   const isAuthenticated = computed(() => Boolean(user.value) && hasToken.value)
-  const isAdmin = computed(() => user.value?.role === 'admin')
+  const isAdmin = computed(() => {
+    const role = String(user.value?.role || '').trim().toLowerCase().replace(/\s+/g, '-')
+    return role === 'admin'
+  })
 
   function saveToken(token: string) {
     localStorage.setItem(TOKEN_KEY, token)

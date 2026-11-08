@@ -7,9 +7,9 @@ const itemField = {
 
 const lineSchema = z.object({
   jenis_barang: z.enum(["toner", "suku_cadang"]),
-  toner_id: z.string().uuid().optional().nullable(),
-  printer_id: z.string().uuid().optional().nullable(),
-  suku_cadang_id: z.string().uuid().optional().nullable(),
+  toner_id: z.string().min(1).optional().nullable(),
+  printer_id: z.string().min(1).optional().nullable(),
+  suku_cadang_id: z.string().min(1).optional().nullable(),
   jumlah: z.number().positive(),
   satuan: z.string().optional(),
   keterangan: z.string().optional().nullable()
@@ -23,14 +23,17 @@ const lineSchema = z.object({
 const mutasiSchema = z.object({
   nomor_mutasi: z.string().optional(),
   jenis_mutasi: z.enum(["masuk", "keluar", "transfer", "penyesuaian", "pemakaian"]),
-  gudang_asal_id: z.string().uuid().optional().nullable(),
-  gudang_tujuan_id: z.string().uuid().optional().nullable(),
+  gudang_asal_id: z.string().min(1).optional().nullable(),
+  gudang_tujuan_id: z.string().min(1).optional().nullable(),
   jenis_referensi: z.string().optional().nullable(),
-  referensi_id: z.string().uuid().optional().nullable(),
+  referensi_id: z.string().trim().min(1).max(100).optional().nullable(),
   keterangan: z.string().optional().nullable(),
   detail: z.array(lineSchema).min(1),
   langsung_posting: z.boolean().optional()
 }).superRefine((body, ctx) => {
+  if (body.referensi_id && body.jenis_referensi !== "surat_tugas" && !z.string().uuid().safeParse(body.referensi_id).success) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "ID referensi harus UUID kecuali untuk Surat Tugas.", path: ["referensi_id"] });
+  }
   const perluAsal = ["keluar", "transfer", "pemakaian"].includes(body.jenis_mutasi);
   const perluTujuan = ["masuk", "transfer"].includes(body.jenis_mutasi);
   if (perluAsal && !body.gudang_asal_id) {

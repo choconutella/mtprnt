@@ -1,6 +1,6 @@
 const JENIS_TIKET = Object.freeze({
   delivery: {
-    kontrak: ["kirim_kontrak", "terima_tukar"],
+    kontrak: ["kirim_kontrak", "terima_return"],
     trial: ["kirim_trial"],
     stand_by: ["kirim_stand_by"],
     event: ["kirim_event"],
@@ -9,7 +9,7 @@ const JENIS_TIKET = Object.freeze({
   },
   komplain: {
     on_site_service: ["on_site_service"],
-    back_up: ["kirim_back_up", "terima_unit_rusak"]
+    back_up: ["kirim_back_up", "terima_return"]
   },
   internal: {
     repair: ["repair"],

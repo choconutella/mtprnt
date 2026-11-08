@@ -5,12 +5,14 @@ const tabelStok = {
   toner: {
     tabel: "stok_toner",
     kolomItem: "toner_id",
-    master: "master_toner"
+    master: "master_toner",
+    masterKey: "kode_toner"
   },
   suku_cadang: {
     tabel: "stok_suku_cadang",
     kolomItem: "suku_cadang_id",
-    master: "master_suku_cadang"
+    master: "master_suku_cadang",
+    masterKey: "kode_suku_cadang"
   }
 };
 
@@ -23,7 +25,7 @@ async function tambahStok(tx, jenis_barang, gudang_id, item_id, jumlah) {
   const cfg = tabelStok[jenis_barang];
   await tx.$executeRawUnsafe(
     `INSERT INTO ${cfg.tabel} (gudang_id, ${cfg.kolomItem}, jumlah_tersedia)
-     VALUES ($1::uuid, $2::uuid, $3::numeric)
+     VALUES ($1::varchar, $2::varchar, $3::numeric)
      ON CONFLICT (gudang_id, ${cfg.kolomItem})
      DO UPDATE SET
        jumlah_tersedia = ${cfg.tabel}.jumlah_tersedia + EXCLUDED.jumlah_tersedia,
@@ -40,8 +42,8 @@ async function kurangiStok(tx, jenis_barang, gudang_id, item_id, jumlah) {
     `UPDATE ${cfg.tabel}
      SET jumlah_tersedia = jumlah_tersedia - $3::numeric,
          tanggal_diperbarui = now()
-     WHERE gudang_id = $1::uuid
-       AND ${cfg.kolomItem} = $2::uuid
+     WHERE gudang_id = $1::varchar
+       AND ${cfg.kolomItem} = $2::varchar
        AND jumlah_tersedia >= $3::numeric
      RETURNING id`,
     gudang_id,
@@ -83,15 +85,15 @@ async function terapkanMutasi(tx, mutasi, lines, req) {
     }
 
     const cfg = tabelStok[line.jenis_barang];
-    const master = await tx[cfg.master].findUnique({ where: { id: itemId } });
+    const master = await tx[cfg.master].findUnique({ where: { [cfg.masterKey]: itemId } });
     const gudangIds = [...new Set([asalId, tujuanId].filter(Boolean))];
     const [stocks, gudangs] = await Promise.all([
       tx[cfg.tabel].findMany({ where: { [cfg.kolomItem]: itemId, gudang_id: { in: gudangIds } } }),
-      tx.master_gudang.findMany({ where: { id: { in: gudangIds } }, select: { id: true, nama_gudang: true } })
+      tx.master_gudang.findMany({ where: { kode_gudang: { in: gudangIds } }, select: { kode_gudang: true, nama_gudang: true } })
     ]);
     const stokSesudah = gudangIds.map((id) => ({
       gudang_id: id,
-      nama_gudang: gudangs.find((gudang) => gudang.id === id)?.nama_gudang || null,
+      nama_gudang: gudangs.find((gudang) => gudang.kode_gudang === id)?.nama_gudang || null,
       jumlah_tersedia: Number(stocks.find((stock) => stock.gudang_id === id)?.jumlah_tersedia || 0)
     }));
     const delta = (id) => {

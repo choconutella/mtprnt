@@ -1,6 +1,71 @@
 # Changelogs
 
+## 2026-11-08
+
+### Database and API compatibility
+
+- Menerapkan skema business key dari `database-schema-edit.md`: master menggunakan `slug` UUID untuk URL, sedangkan relasi database menggunakan kode bisnis bertipe `varchar`.
+- Menambahkan migration 023 yang mempertahankan `master_pengguna`, mengosongkan tabel non-pengguna lokal sesuai persetujuan, dan membangun ulang foreign key.
+- Mempertahankan kompatibilitas endpoint dengan menerjemahkan UUID pada request API menjadi kode bisnis sebelum disimpan ke database.
+- Memverifikasi endpoint utama, pembuatan master, pembuatan Unit Printer, dan posting mutasi stok terhadap database lokal.
+- Menetapkan admin sebagai superuser pada backend dan menormalkan role secara case-insensitive agar admin tetap dapat mengakses semua modul dan aksi.
+- Menyamakan pemeriksaan `isAdmin` frontend agar role admin dengan variasi kapitalisasi atau spasi tetap dapat membuat dan mengubah master data.
+- Menghapus endpoint dan aksi hapus Toner serta Sparepart dari frontend dan service; status `aktif` tetap dapat diubah melalui form edit.
+- Menghapus endpoint dan aksi hapus Gudang; tombol Aktif/Nonaktif Gudang kini mengubah status melalui `PUT` seperti master Sparepart.
+- Menyamakan tombol Aktif/Nonaktif pada User, Kategori Printer, Model Printer, Customer, dan Billing; perubahan status kini memakai endpoint `PUT` masing-masing.
+- Menghapus baris sintetis “Belum ada gudang” dari daftar stok Toner dan Sparepart; daftar kini hanya menampilkan stok yang benar-benar tersimpan pada gudang.
+- Memperbaiki validasi Customer saat menyimpan Tiket agar UUID Account dibandingkan dengan kode Account yang tersimpan pada relasi Customer.
+- Memperbaiki payload printer saat membuat Surat Tugas dari Tiket agar `model_id` mengirim UUID model, bukan kode model bisnis.
+- Memperbaiki validasi Account/Customer pada pembuatan Surat Tugas dari Tiket agar relasi Customer dibandingkan dengan kode Account yang tersimpan.
+- Memperbaiki penyimpanan Surat Tugas agar `dibuat_oleh` dan PIC Warehouse menggunakan `user_id` sesuai kolom kode pengguna, bukan UUID.
+- Memperbaiki workflow Surat Tugas agar Konfirmasi Keluar, Konfirmasi Terima, dan penyelesaian menyimpan `user_id` pada kolom validator serta mutasi stok.
+- Memperbaiki penyelesaian pengiriman Surat Tugas agar Account/Customer printer menggunakan kode bisnis yang sesuai foreign key database.
+- Menyembunyikan field Unit Printer untuk Tiket Delivery dan memastikan payload/API menolak keterikatan printer pada kategori tersebut.
+- Menyembunyikan field Unit Printer pada Edit Tiket jika Tiket tidak memiliki `mp_no`, termasuk kasus Delivery tanpa printer.
+
+### Fixed
+
+- Simpan Customer kini menerjemahkan UUID Billing ke kode Account pada foreign key database. Daftar dan perubahan Customer tetap memakai UUID pada API; pemeriksaan relasi dan penghapusan Account diselaraskan.
+- Penyimpanan Items pada Surat Tugas yang dibuat dari Tiket tidak lagi mengirim `printer_id`/`mp_no` ke PUT identitas ST, sehingga printer komplain tidak dianggap berubah saat printer bawaan ditambahkan atau disimpan.
+- Penghapusan printer dari Items Surat Tugas kini menghapus baris unit melalui endpoint khusus dan melepas reservasi printer terkait; tidak lagi mengirim perubahan `printer_id` melalui PUT.
+- Printer objek Tiket pada ST On-site Service tidak lagi dihitung sebagai barang bawaan di tab Items.
+- Workflow Surat Tugas disesuaikan dengan rancangan terbaru. Pengiriman, Back-up, dan Internal Use selesai setelah Konfirmasi Keluar, sedangkan On-site Service, Repair, dan Maintenance menggunakan Konfirmasi Pengembalian sebelum Selesai Pekerjaan.
+- Field Unit Lama pada Back-up bertiket kini menampilkan MP No printer dari Tiket secara readonly.
+- Penyimpanan Unit Printer kini mengirim field tanggal kosong sebagai `null` agar lolos validasi service.
+- Field Interval Maintenance tetap tampil pada form Unit Printer. Backend kini mengizinkan interval tanpa tanggal maintenance berikutnya, sedangkan tanggal maintenance tetap membutuhkan interval.
+- Penyimpanan interval maintenance kini menghitung tanggal maintenance berikutnya secara otomatis sesuai interval; tanggal yang sudah ada dipertahankan jika interval tidak berubah.
+- Jadwal maintenance kini mengacu pada tanggal Resolve ST Maintenance terakhir ditambah interval bulan. Tanggal berikutnya boleh kosong sebelum ada riwayat selesai; migration 022 menghapus aturan pasangan tanggal/interval dan menyelaraskan data lama.
+
+### Changed
+
+- Jenis Terima Unit Rusak dan Terima Tukar dihapus dari pilihan pembuatan Surat Tugas dan digabungkan ke jenis Return.
+
+## 2026-11-07
+
+### Fixed
+
+- Konfirmasi Pengembalian dan pemeriksaan unit pada ST kini menggunakan UUID Account/Customer dari master saat mengakses Unit Printer dan Kontrak; ST tetap menyimpan kode referensi sesuai kontrak.
+- Pencarian Unit Printer di form ST mengubah kode Customer menjadi UUID khusus untuk filter `/printer`, sehingga memilih jenis On-site Service tidak lagi memicu validasi filter; rincian field yang gagal juga ditampilkan saat pembuatan ST.
+- Form Surat Tugas kini mengirim `account_id` sebagai `kode_account` dan `customer_id` sebagai `kode_customer`; validasi serta response ST baru disesuaikan dengan kontrak kode referensi tersebut.
+- Memperbaiki pembuatan ST `on_site_service` dari Tiket Komplain; validasi Account/Customer kini membandingkan UUID dari request dengan kode referensi internal Tiket secara benar.
+- Mengembalikan endpoint baca daftar dan detail Surat Tugas pada router baru setelah penghapusan router legacy, sehingga halaman `/surat-tugas` tidak lagi mendapat 404 saat memuat daftar.
+- Tab Unit Printer pada Surat Tugas kini hanya tampil untuk jenis Repair, On-site Service, dan Maintenance.
+
+### Changed
+
+- Tiket kini mencatat satu objek printer melalui `mp_no`. Untuk TUKAR dan BACK-UP, unit pengganti dipilih pada Surat Tugas; rincian Model dan Sumber penerimaan printer baru juga diisi pada Surat Tugas. Relasi `tiket_printer` dihapus.
+- Alur Komplain lama dihapus. Tabel `pengaduan`, endpoint `/pengaduan`, relasi `tiket.pengaduan_lama_id`, trigger sinkronisasi, dan route Surat Tugas legacy tidak lagi digunakan; pencatatan masalah memakai Tiket kategori `komplain`.
+- Rincian toner dipindahkan sepenuhnya ke item Surat Tugas. Tabel `tiket_barang`, field `toner` pada pembuatan Tiket, dan input toner pada form Tiket dihapus; ST pengiriman toner mengharuskan item sebelum barang keluar.
+- Baris Unit Printer Surat Tugas kini memakai MP No dan kode model sebagai referensi fisik. Printer baru dibuat di master saat ST penerimaan dibuat dengan status tidak aktif, lalu diaktifkan setelah konfirmasi gudang; form menyediakan serial number dan tanggal pembelian opsional.
+- Referensi printer pada Surat Tugas kini memakai `mp_no` dengan foreign key ke master printer. Kolom fisik `surat_tugas.printer_id` dihapus; field API lama tetap tersedia sebagai nilai turunan.
+
 ## 2026-11-06
+
+### Changed
+
+- Menjadikan nomor Surat Tugas sebagai `id` utama pada database, API, dan relasi anak; UUID lama menjadi `slug` terindeks. Kolom fisik referensi Account, Customer, Tiket, dan Gudang kini memakai kode bisnis, sementara field API terkait tetap memakai UUID master. Migrasi lokal mempertahankan seluruh Surat Tugas dan memperbarui referensi audit lama.
+- Menghapus kolom `surat_tugas.pengaduan_id` dan field API terkait. Alur Komplain lama kini menghubungkan Surat Tugas melalui `tiket_id`, dengan Tiket arsip yang dibuat untuk setiap Komplain agar relasi dan hak akses tetap berjalan.
+- Mengganti nama tabel fisik item Surat Tugas menjadi `surat_tugas_item` pada database lokal dan skrip inisialisasi berikutnya. Nama relasi Prisma serta field respons API tetap kompatibel; referensi audit diselaraskan.
 
 ### Fixed
 
@@ -126,3 +191,5 @@
 - Mengganti halaman awal Dashboard dengan ringkasan tiket, surat tugas, stok, printer, dan beban teknisi berbasis endpoint existing.
 - Menambahkan deployment Docker lokal khusus `frontend/` dengan build Nuxt production dan konfigurasi URL API melalui environment variable.
 - Menggabungkan service Nuxt production `frontend` ke `docker-compose.yml` root dengan build context `./frontend` dan port default 3000.
+- Mengganti tabel relasi teknisi menjadi `surat_tugas_teknisi` dan memindahkan foreign key `teknisi_id` ke `master_pengguna.user_id`, dengan translasi API tetap kompatibel.
+- Mengubah identitas Tiket: UUID menjadi `slug`, nomor tiket menjadi primary key `id`, relasi Account/Customer/Owner/Pembuat memakai kode master atau `user_id`, dan `sales_id` menjadi `owner`.

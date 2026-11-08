@@ -81,9 +81,9 @@ const columns = [
 const actionTitle = computed(() => ({ transfer: 'Pindah Gudang', withdraw: 'Keluarkan Unit', return: 'Kembalikan Unit' })[action.value])
 
 function locationLabel(row: Row) {
-  if (row.status === 'installed') return `Customer: ${row.master_account?.nama_account || '-'} / ${row.master_customer?.nama_customer || '-'}`
+  if (row.status === 'installed') return `${row.master_account?.nama_account || '-'} / ${row.master_customer?.nama_customer || '-'}`
   if (row.status === 'issued') return 'Dalam proses surat tugas'
-  return `Gudang: ${row.master_gudang?.nama_gudang || '-'}`
+  return `${row.master_gudang?.nama_gudang || '-'}`
 }
 
 function normalizeRow(row: Row) {
@@ -256,7 +256,14 @@ async function savePrinter() {
   crudSaving.value = true
   crudError.value = ''
   try {
-    const body = { ...form, mp_no: form.mp_no.trim(), serial_number: form.serial_number.trim() || null, interval_maintenance_bulan: form.interval_maintenance_bulan ? Number(form.interval_maintenance_bulan) : null }
+    const body = {
+      ...form,
+      mp_no: form.mp_no.trim(),
+      serial_number: form.serial_number.trim() || null,
+      tanggal_pembelian: form.tanggal_pembelian || null,
+      tanggal_maintenance_berikutnya: form.tanggal_maintenance_berikutnya || null,
+      interval_maintenance_bulan: form.interval_maintenance_bulan ? Number(form.interval_maintenance_bulan) : null,
+    }
     if (editing.value) await request(`/printer/${editing.value.id}`, { method: 'PUT', body })
     else await request('/printer', { method: 'POST', body })
     crudModalOpen.value = false

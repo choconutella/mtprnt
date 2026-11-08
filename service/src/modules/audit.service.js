@@ -32,7 +32,7 @@ async function catatAudit(tx, req, input) {
       data_sebelum: bersihkanJson(input.data_sebelum),
       data_sesudah: bersihkanJson(input.data_sesudah),
       keterangan: input.keterangan || null,
-      pengguna_id: req.pengguna?.id || null,
+      pengguna_id: req.pengguna?.user_id || null,
       nama_pengguna: req.pengguna?.name || req.pengguna?.nama || req.pengguna?.user_id || null,
       ip_address: ambilIp(req),
       user_agent: req.headers["user-agent"] || null

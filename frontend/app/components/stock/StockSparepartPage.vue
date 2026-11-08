@@ -6,6 +6,7 @@ const { request, message } = useServiceApi()
 const auth = useAuth()
 const rows = ref<Row[]>([])
 const warehouses = ref<Row[]>([])
+const spareparts = ref<Row[]>([])
 const search = ref('')
 const page = ref(1)
 const pageSize = ref(10)
@@ -19,13 +20,9 @@ const form = reactive({ jenis_mutasi: 'masuk' as 'masuk' | 'keluar', gudang_asal
 const normalizedRole = computed(() => String(auth.user.value?.role || '').trim().toLowerCase().replaceAll('-', '_'))
 const canManageStock = computed(() => ['admin', 'warehouse'].includes(normalizedRole.value))
 const warehouseOptions = computed(() => warehouses.value.filter(item => item.aktif !== false).map(item => ({ label: `${item.kode_gudang} — ${item.nama_gudang}`, value: item.id })))
-const sparepartOptions = computed(() => {
-  const options = new Map<string, { label: string, value: string }>()
-  rows.value.filter(item => item.master_suku_cadang?.id).forEach((item) => {
-    if (!options.has(item.suku_cadang_id)) options.set(item.suku_cadang_id, { label: `${item.master_suku_cadang.kode_suku_cadang} — ${item.master_suku_cadang.nama_suku_cadang}`, value: item.suku_cadang_id })
-  })
-  return [...options.values()]
-})
+const sparepartOptions = computed(() => spareparts.value
+  .filter(item => item.aktif !== false)
+  .map(item => ({ label: `${item.kode_suku_cadang} — ${item.nama_suku_cadang}`, value: item.id })))
 const keywords = computed(() => search.value.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean))
 const filteredRows = computed(() => rows.value.filter((row) => {
   const text = [row.master_gudang?.kode_gudang, row.master_gudang?.nama_gudang, row.master_suku_cadang?.kode_suku_cadang, row.master_suku_cadang?.nama_suku_cadang].filter(Boolean).join(' ').toLocaleLowerCase()
@@ -68,9 +65,18 @@ async function loadWarehouses() {
   }
 }
 
+async function loadSpareparts() {
+  try {
+    const response = await request<{ data: { items: Row[] } }>('/suku-cadang?halaman=1&batas=100')
+    spareparts.value = response.data.items || []
+  } catch (error) {
+    errorMessage.value = message(error, 'Daftar sparepart gagal dimuat.')
+  }
+}
+
 function openMutation(type: 'masuk' | 'keluar', row?: Row) {
   if (!canManageStock.value) return
-  Object.assign(form, { jenis_mutasi: type, gudang_asal_id: type === 'keluar' ? row?.gudang_id || '' : '', gudang_tujuan_id: type === 'masuk' ? row?.gudang_id || '' : '', suku_cadang_id: row?.suku_cadang_id || '', jumlah: 1, keterangan: '' })
+  Object.assign(form, { jenis_mutasi: type, gudang_asal_id: type === 'keluar' ? row?.master_gudang?.id || row?.gudang_id || '' : '', gudang_tujuan_id: type === 'masuk' ? row?.master_gudang?.id || row?.gudang_id || '' : '', suku_cadang_id: row?.master_suku_cadang?.id || row?.suku_cadang_id || '', jumlah: 1, keterangan: '' })
   errorMessage.value = ''
   modalOpen.value = true
 }
@@ -96,7 +102,7 @@ async function saveMutation() {
 
 watch([search, pageSize], () => { page.value = 1 })
 watch(page, () => { if (page.value > totalPages.value) page.value = totalPages.value })
-onMounted(async () => { await Promise.all([loadRows(), loadWarehouses()]) })
+onMounted(async () => { await Promise.all([loadRows(), loadWarehouses(), loadSpareparts()]) })
 </script>
 
 <template>

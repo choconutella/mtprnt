@@ -10,14 +10,14 @@ async function terapkanSlaPendingKomplain() {
   const jam = await ambilSlaPendingJam();
   const batas = new Date(Date.now() - jam * 60 * 60 * 1000);
   return prisma.$transaction(async (tx) => {
-    const due = await tx.tiket.findMany({ where: { kategori: "komplain", pengaduan_lama_id: null, status: "new", tanggal_transaksi: { lte: batas } } });
+    const due = await tx.tiket.findMany({ where: { kategori: "komplain", status: "new", tanggal_transaksi: { lte: batas } } });
     let count = 0;
     for (const before of due) {
       const changed = await tx.tiket.updateMany({ where: { id: before.id, status: "new" }, data: { status: "pending", tanggal_diperbarui: new Date() } });
       if (!changed.count) continue;
       count += 1;
       await catatAudit(tx, { pengguna: { nama: "Sistem" }, headers: {} }, {
-        jenis_dokumen: "tiket", nomor_dokumen: before.nomor_tiket, tabel_sumber: "tiket", id_sumber: before.id,
+        jenis_dokumen: "tiket", nomor_dokumen: before.id, tabel_sumber: "tiket", id_sumber: before.id,
         aksi: "ubah_status", status_sebelum: "new", status_sesudah: "pending",
         data_sebelum: before, data_sesudah: { ...before, status: "pending" },
         keterangan: `SLA ${jam} jam terlampaui.`

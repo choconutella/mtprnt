@@ -9,9 +9,9 @@ const sumber = {
 async function potretLokasi(tx, row) {
   if (!row) return null;
   const [gudang, account, customer] = await Promise.all([
-    row.gudang_id ? tx.master_gudang.findUnique({ where: { id: row.gudang_id }, select: { nama_gudang: true } }) : null,
-    row.account_id ? tx.master_account.findUnique({ where: { id: row.account_id }, select: { nama_account: true } }) : null,
-    row.customer_id ? tx.master_customer.findUnique({ where: { id: row.customer_id }, select: { nama_customer: true } }) : null
+    row.gudang_id ? tx.master_gudang.findUnique({ where: { kode_gudang: row.gudang_id }, select: { nama_gudang: true } }) : null,
+    row.account_id ? tx.master_account.findUnique({ where: { kode_account: row.account_id }, select: { nama_account: true } }) : null,
+    row.customer_id ? tx.master_customer.findUnique({ where: { kode_customer: row.customer_id }, select: { nama_customer: true } }) : null
   ]);
   return {
     ...row,

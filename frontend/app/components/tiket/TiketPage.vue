@@ -64,16 +64,21 @@ const form = reactive({
   kategori: "",
   account_id: "",
   customer_id: "",
-  sales_id: "",
+  owner: "",
   tanggal_transaksi: "",
   deskripsi: "",
+  new_mp_no: "",
   printer_ids: [] as string[],
+});
+const selectedPrinterId = computed({
+  get: () => form.printer_ids[0] || "",
+  set: (id: string) => { form.printer_ids = id ? [id] : []; },
 });
 const ownerItems = computed(() =>
   options.sales
     .filter(
       (row) =>
-        (row.aktif !== false && row.active !== false) || row.id === form.sales_id,
+        (row.aktif !== false && row.active !== false) || row.id === form.owner,
     )
     .map((row) => ({
       label: row.nama_lengkap || row.name || row.nama || row.user_id,
@@ -88,6 +93,7 @@ const allowedCategories = computed(() =>
 const customerRequired = computed(() =>
   ["delivery", "komplain", "inbound", "maintenance"].includes(form.kategori),
 );
+const showUnitPrinter = computed(() => !["delivery", "inbound"].includes(form.kategori));
 const canCloseSelected = computed(() =>
   Boolean(
     selected.value &&
@@ -135,9 +141,10 @@ function resetForm() {
     kategori: allowedCategories.value[0] || "",
     account_id: "",
     customer_id: "",
-    sales_id: "",
+    owner: "",
     tanggal_transaksi: dateTimeLocal(),
     deskripsi: "",
+    new_mp_no: "",
     printer_ids: [],
   });
 }
@@ -178,7 +185,7 @@ async function loadOption(path: string, key: string, term = "") {
       const selectedUnits = options.printers.filter((unit) => form.printer_ids.includes(unit.id));
       options.printers = [...new Map([...selectedUnits, ...results].map((unit) => [unit.id, unit])).values()];
     } else if (key === "sales") {
-      const selectedOwner = options.sales.filter((user) => user.id === form.sales_id);
+      const selectedOwner = options.sales.filter((user) => user.id === form.owner);
       options.sales = [...new Map([...selectedOwner, ...results].map((user) => [user.id, user])).values()];
     } else options[key] = results;
   } catch (e) {
@@ -207,17 +214,15 @@ async function openDetail(row: Row, tab: "detil" | "surat_tugas" = "detil") {
       deskripsi: selected.value.deskripsi || "",
       customer_id: selected.value.customer_id || "",
       account_id: selected.value.account_id || "",
-      sales_id: selected.value.sales_id || "",
+    owner: selected.value.owner || selected.value.sales_id || "",
       tanggal_transaksi: selected.value.tanggal_transaksi
         ? new Date(new Date(selected.value.tanggal_transaksi).getTime() - new Date(selected.value.tanggal_transaksi).getTimezoneOffset() * 60000).toISOString().slice(0, 16)
         : "",
-      printer_ids: (selected.value.tiket_printer || []).map((line: Row) => line.printer_id).filter(Boolean),
+      printer_ids: [],
     });
-    const selectedUnits = (selected.value.tiket_printer || []).map((line: Row) => line.master_printer).filter(Boolean);
-    options.printers = [...new Map([...selectedUnits, ...options.printers].map((unit) => [unit.id, unit])).values()];
-    if (selected.value.sales_id && !options.sales.some((user) => user.id === selected.value.sales_id)) {
+    if (form.owner && !options.sales.some((user) => user.id === form.owner)) {
       try {
-        const ownerResponse = await request<Row>(`/pengguna/${selected.value.sales_id}`);
+        const ownerResponse = await request<Row>(`/pengguna/${form.owner}`);
         options.sales = [ownerResponse.data, ...options.sales];
       } catch {
         // Detail tiket tetap dapat dibuka jika profil Owner tidak tersedia.
@@ -233,30 +238,26 @@ function payload() {
     kategori: form.kategori,
     account_id: form.account_id || null,
     customer_id: form.customer_id || null,
-    sales_id: form.sales_id || null,
+    owner: form.owner || null,
     tanggal_transaksi: iso(form.tanggal_transaksi),
     deskripsi: form.deskripsi || null,
-    printer: options.printers
-      .filter((p) => form.printer_ids.includes(p.id))
-      .map((p) => ({
-        printer_id: p.id,
-        mp_no: p.mp_no,
-        model_id: p.model_id,
-        serial_number: p.serial_number,
-        peran: "utama",
-      })),
-    toner: [],
+    mp_no: form.kategori === "inbound"
+      ? form.new_mp_no.trim() || null
+      : showUnitPrinter.value
+        ? options.printers?.find((p) => p.id === selectedPrinterId.value)?.mp_no || null
+        : null,
   };
 }
 async function save() {
   if (selected.value && !form.tanggal_transaksi) { errorMessage.value = "Tanggal Tiket wajib diisi."; return; }
+  if (!selected.value && form.kategori === "inbound" && !form.new_mp_no.trim()) { errorMessage.value = "MP No objek wajib diisi."; return; }
   saving.value = true;
   clearNotice();
   try {
     if (selected.value)
       await request(`/tiket/${selected.value.id}`, {
         method: "PUT",
-        body: { sales_id: form.sales_id || undefined, tanggal_transaksi: iso(form.tanggal_transaksi), deskripsi: form.deskripsi },
+        body: { owner: form.owner || undefined, tanggal_transaksi: iso(form.tanggal_transaksi), deskripsi: form.deskripsi },
       });
     else await request("/tiket", { method: "POST", body: payload() });
     createOpen.value = false;
@@ -270,6 +271,7 @@ async function save() {
   }
 }
 async function saveAndCreateSt() {
+  if (form.kategori === "inbound" && !form.new_mp_no.trim()) { errorMessage.value = "MP No objek wajib diisi."; return; }
   saving.value = true;
   clearNotice();
   try {
@@ -350,6 +352,13 @@ watch([category, status, pageSize], () => {
   page.value = 1;
   loadTickets();
 });
+watch(
+  () => form.kategori,
+  (value) => {
+    if (!showUnitPrinter.value) form.printer_ids = [];
+    if (value !== "inbound") form.new_mp_no = "";
+  },
+);
 watch(search, () =>
   debounce("list", () => {
     page.value = 1;
@@ -436,7 +445,7 @@ onMounted(async () => {
       <UTable
         :data="rows"
         :columns="[
-          { accessorKey: 'nomor_tiket', header: 'No. Tiket' },
+          { accessorKey: 'id', header: 'No. Tiket' },
           { accessorKey: 'kategori', header: 'Kategori' },
           { accessorKey: 'master_customer', header: 'Customer' },
           { accessorKey: 'status', header: 'Status' },
@@ -553,10 +562,18 @@ onMounted(async () => {
               @update:model-value="selectCustomer" />
           </UFormField>
               <UFormField
+                v-if="form.kategori === 'inbound'"
+                label="MP No objek"
+                required
+              >
+                <UInput v-model="form.new_mp_no" class="w-full" />
+              </UFormField>
+              <UFormField
+                v-else-if="showUnitPrinter"
                 label="Unit Printer"
               >
                 <USelectMenu
-              v-model="form.printer_ids"
+              v-model="selectedPrinterId"
               v-model:search-term="searches.printer"
               :items="
                 options.printers.map((row) => ({
@@ -565,7 +582,6 @@ onMounted(async () => {
                 }))
               "
               value-key="value"
-              multiple
               searchable
               ignore-filter
               :loading="loadingOptions.printer"
@@ -586,7 +602,7 @@ onMounted(async () => {
                 :required="['delivery', 'komplain'].includes(form.kategori)"
               >
                 <USelectMenu
-                  v-model="form.sales_id"
+                  v-model="form.owner"
                   v-model:search-term="searches.sales"
                   :items="ownerItems"
                   value-key="value"
@@ -713,9 +729,12 @@ onMounted(async () => {
                   class="w-full"
                 />
             </UFormField>
-            <UFormField label="Unit Printer">
+            <UFormField
+              v-if="selected.mp_no"
+              label="Unit Printer"
+            >
                 <UInput
-                  :model-value="selected.tiket_printer?.map((line: Row) => line.mp_no).join(', ') || '—'"
+                  :model-value="selected.mp_no || '—'"
                   readonly
                   class="w-full"
                 />
@@ -730,7 +749,7 @@ onMounted(async () => {
             </UFormField>
             <UFormField label="Owner">
                 <USelectMenu
-                  v-model="form.sales_id"
+                  v-model="form.owner"
                   v-model:search-term="searches.sales"
                   :items="ownerItems"
                   value-key="value"

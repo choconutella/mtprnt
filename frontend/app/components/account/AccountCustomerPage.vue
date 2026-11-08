@@ -270,26 +270,17 @@ async function saveBilling() {
   }
 }
 
-async function remove(row: Customer, permanent = false) {
-  if (
-    !canWrite.value ||
-    !window.confirm(
-      `${permanent ? "Hapus permanen" : "Nonaktifkan"} Customer ${row.nama_customer}?`,
-    )
-  )
-    return;
+async function toggleActive(row: Customer) {
+  if (!canWrite.value) return;
+  const nextStatus = !row.aktif;
+  if (!window.confirm(`${nextStatus ? "Aktifkan" : "Nonaktifkan"} Customer ${row.nama_customer}?`)) return;
+  if (!nextStatus && row.boleh_nonaktifkan === false) return;
   try {
-    await request(
-      `/account/${row.account_id}/customer/${row.id}${permanent ? "/permanent" : ""}`,
-      { method: "DELETE" },
-    );
-    successMessage.value = permanent
-      ? "Customer berhasil dihapus permanen."
-      : "Customer berhasil dinonaktifkan.";
-    if (permanent && rows.value.length === 1 && page.value > 1) page.value -= 1;
+    await request(`/account/${row.account_id}/customer/${row.id}`, { method: "PUT", body: { aktif: nextStatus } });
+    successMessage.value = `Customer berhasil ${nextStatus ? "diaktifkan" : "dinonaktifkan"}.`;
     await loadRows();
   } catch (error) {
-    errorMessage.value = message(error, "Customer gagal diubah.");
+    errorMessage.value = message(error, `Customer gagal ${nextStatus ? "diaktifkan" : "dinonaktifkan"}.`);
   }
 }
 
@@ -406,19 +397,18 @@ onMounted(initialize);
               @click="openEdit(row.original)"
             />
             <UButton
-              v-if="row.original.aktif"
               size="xs"
-              color="warning"
+              :color="row.original.aktif ? 'warning' : 'success'"
               variant="ghost"
-              icon="i-lucide-power"
-              aria-label="Nonaktifkan Customer"
-              :disabled="!row.original.boleh_nonaktifkan"
+              :icon="row.original.aktif ? 'i-lucide-power-off' : 'i-lucide-power'"
+              :aria-label="row.original.aktif ? 'Nonaktifkan Customer' : 'Aktifkan Customer'"
+              :disabled="row.original.aktif && !row.original.boleh_nonaktifkan"
               :title="
-                row.original.boleh_nonaktifkan
-                  ? 'Nonaktifkan Customer'
+                !row.original.aktif || row.original.boleh_nonaktifkan
+                  ? (row.original.aktif ? 'Nonaktifkan Customer' : 'Aktifkan Customer')
                   : 'Customer aktif terakhir tidak dapat dinonaktifkan'
               "
-              @click="remove(row.original)"
+              @click="toggleActive(row.original)"
             />
           </div>
           <span

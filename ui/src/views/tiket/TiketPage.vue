@@ -23,12 +23,11 @@ const accounts = ref([]);
 const customers = ref([]);
 const printers = ref([]);
 const printerSearch = ref("");
-const toners = ref([]);
 const models = ref([]);
 const sales = ref([]);
 const contracts = ref([]);
 const trialTickets = ref([]);
-const form = reactive({ kategori: "", jenis: "", account_id: "", customer_id: "", sales_id: "", mode: "", kontrak_id: "", tiket_asal_id: "", tanggal_transaksi: "", tanggal_akhir: "", lokasi_internal: "", deskripsi: "", alasan: "", hasil: "", printer_ids: [], printer_utama_id: "", printer_pengganti_id: "", printer_lama_id: "", toner_id: "", jumlah: 1, newPrinters: [{ mp_no: "", model_id: "", sumber: "" }] });
+const form = reactive({ kategori: "", jenis: "", account_id: "", customer_id: "", sales_id: "", mode: "", kontrak_id: "", tiket_asal_id: "", tanggal_transaksi: "", tanggal_akhir: "", lokasi_internal: "", deskripsi: "", alasan: "", hasil: "", printer_ids: [], printer_utama_id: "", printer_pengganti_id: "", printer_lama_id: "", newPrinters: [{ mp_no: "", model_id: "", sumber: "" }] });
 
 const categoryNames = { delivery: "Delivery", komplain: "Komplain", internal: "Internal", inbound: "Inbound", maintenance: "Maintenance" };
 const kindNames = { kontrak: "Kontrak", trial: "Trial", stand_by: "Stand-by", event: "Event", sell: "Sell", toner_purchase: "Toner Purchase", on_site_service: "On-site Service", back_up: "Back-up", repair: "Repair", qc: "QC", internal_use: "Internal Use", return: "Return", penerimaan_printer: "Penerimaan Printer", maintenance: "Maintenance" };
@@ -88,13 +87,12 @@ async function all(endpoint) {
 
 async function loadOptions() {
   try {
-    const [a, c, p, t, m, u, k, trial, types] = await Promise.all([
-      all("/account"), all("/account/lokasi-customer"), api.get("/printer", { params: { batas: 100 } }), all("/toner"), all("/printer-model"), all("/pengguna"), all("/kontrak"), all("/tiket?jenis=trial&status=solved"), api.get("/tiket/catalog")
+    const [a, c, p, m, u, k, trial, types] = await Promise.all([
+      all("/account"), all("/account/lokasi-customer"), api.get("/printer", { params: { batas: 100 } }), all("/printer-model"), all("/pengguna"), all("/kontrak"), all("/tiket?jenis=trial&status=solved"), api.get("/tiket/catalog")
     ]);
     accounts.value = a.filter((item) => item.aktif);
     customers.value = c;
     printers.value = p.data.data.items;
-    toners.value = t;
     models.value = m;
     sales.value = u.filter((item) => ["sales", "sales-admin", "sales_admin"].includes(item.role || item.peran));
     contracts.value = k.filter((item) => item.status === "aktif");
@@ -117,7 +115,7 @@ async function load() {
 function openNew() {
   selected.value = null;
   printerSearch.value = "";
-  Object.assign(form, { kategori: allowedCategories.value[0] || "", jenis: "", account_id: "", customer_id: "", sales_id: "", mode: "", kontrak_id: "", tiket_asal_id: "", tanggal_transaksi: dateTimeLocal(), tanggal_akhir: "", lokasi_internal: "", deskripsi: "", alasan: "", hasil: "", printer_ids: [], printer_utama_id: "", printer_pengganti_id: "", printer_lama_id: "", toner_id: "", jumlah: 1, newPrinters: [{ mp_no: "", model_id: "", sumber: "" }] });
+  Object.assign(form, { kategori: allowedCategories.value[0] || "", jenis: "", account_id: "", customer_id: "", sales_id: "", mode: "", kontrak_id: "", tiket_asal_id: "", tanggal_transaksi: dateTimeLocal(), tanggal_akhir: "", lokasi_internal: "", deskripsi: "", alasan: "", hasil: "", printer_ids: [], printer_utama_id: "", printer_pengganti_id: "", printer_lama_id: "", newPrinters: [{ mp_no: "", model_id: "", sumber: "" }] });
   form.jenis = Object.keys(catalog.value[form.kategori] || {})[0] || "";
   tab.value = "general";
   modal.value = true;
@@ -140,11 +138,11 @@ function printerLine(id, peran = "utama") {
 
 function buildPayload() {
   const lines = [];
-  if (form.jenis === "penerimaan_printer") lines.push(...form.newPrinters.map((row) => ({ mp_no: row.mp_no.trim(), model_id: row.model_id, sumber: row.sumber.trim(), peran: "utama" })));
-  else if (form.jenis === "back_up") lines.push(printerLine(form.printer_utama_id, "utama"), printerLine(form.printer_pengganti_id, "pengganti"));
+  if (form.jenis === "penerimaan_printer") lines.push({ mp_no: form.newPrinters[0].mp_no.trim() });
+  else if (form.jenis === "back_up") lines.push(printerLine(form.printer_utama_id, "utama"));
   else if (form.jenis !== "toner_purchase") {
-    lines.push(...form.printer_ids.map((id) => printerLine(id)));
     if (form.jenis === "kontrak" && form.mode === "tukar") lines.push(printerLine(form.printer_lama_id, "unit_lama"));
+    else lines.push(...form.printer_ids.slice(0, 1).map((id) => printerLine(id)));
   }
   return {
     kategori: form.kategori, jenis: form.jenis,
@@ -153,8 +151,8 @@ function buildPayload() {
     kontrak_id: form.kontrak_id || null, tiket_asal_id: form.tiket_asal_id || null,
     tanggal_transaksi: iso(form.tanggal_transaksi), tanggal_akhir: iso(form.tanggal_akhir) || null,
     deskripsi: form.deskripsi || null, alasan: form.alasan || null, lokasi_internal: form.lokasi_internal || null,
-    printer: lines.filter(Boolean),
-    toner: form.jenis === "toner_purchase" && form.toner_id ? [{ toner_id: form.toner_id, jumlah: Number(form.jumlah) }] : []
+    mp_no: lines.find(Boolean)?.mp_no || null,
+    printer: form.jenis === "penerimaan_printer" ? [] : lines.filter(Boolean)
   };
 }
 
@@ -217,12 +215,12 @@ onMounted(async () => {
           <label v-if="form.jenis === 'kontrak' && form.mode === 'tukar'">Kontrak Aktif<select v-model="form.kontrak_id" required><option value="">Pilih Kontrak</option><option v-for="k in contracts.filter(x => x.customer_id === form.customer_id)" :key="k.id" :value="k.id">{{ k.nomor_kontrak }}</option></select></label>
           <label v-if="form.jenis === 'kontrak' && form.mode === 'tukar'">Unit Lama<select v-model="form.printer_lama_id" required><option value="">Pilih Unit</option><option v-for="p in printers.filter(x => x.customer_id === form.customer_id && x.kontrak_id === form.kontrak_id && x.lokasi_jenis === 'customer')" :key="p.id" :value="p.id">{{ p.mp_no }}</option></select></label>
           <label v-if="form.jenis === 'kontrak' && form.mode === 'baru'">Dari Trial (opsional)<select v-model="form.tiket_asal_id"><option value="">Kontrak baru</option><option v-for="t in trialTickets.filter(x => x.customer_id === form.customer_id)" :key="t.id" :value="t.id">{{ t.nomor_tiket }}</option></select></label>
-          <div v-if="form.jenis === 'penerimaan_printer'" class="tkt-new-units wide"><div v-for="(row, index) in form.newPrinters" :key="index" class="tkt-new-unit"><label>MP No<input v-model="row.mp_no" required /></label><label>Model<select v-model="row.model_id" required><option value="">Pilih Model</option><option v-for="m in models" :key="m.id" :value="m.id">{{ m.nama_model }}</option></select></label><label>Sumber / Pemasok<input v-model="row.sumber" required /></label><button v-if="form.newPrinters.length > 1" class="secondary-button" type="button" @click="form.newPrinters.splice(index, 1)">Hapus</button></div><button class="secondary-button" type="button" @click="form.newPrinters.push({ mp_no: '', model_id: '', sumber: '' })">Tambah Unit</button></div>
-          <template v-else-if="form.jenis === 'back_up'"><label>Unit Bermasalah<select v-model="form.printer_utama_id" required><option value="">Pilih Unit</option><option v-for="p in availablePrinters" :key="p.id" :value="p.id">{{ p.mp_no }}</option></select></label><label>Unit Pengganti<select v-model="form.printer_pengganti_id" required><option value="">Pilih Unit</option><option v-for="p in printers.filter(x => x.lokasi_jenis === 'gudang' && x.kondisi === 'ready')" :key="p.id" :value="p.id">{{ p.mp_no }}</option></select></label></template>
-          <label v-else-if="form.jenis === 'toner_purchase'">Toner<select v-model="form.toner_id" required><option value="">Pilih Toner</option><option v-for="t in toners" :key="t.id" :value="t.id">{{ t.nama_toner }}</option></select></label><label v-if="form.jenis === 'toner_purchase'">Jumlah<input v-model.number="form.jumlah" type="number" min="1" required /></label>
-          <div v-if="!['penerimaan_printer','toner_purchase','back_up'].includes(form.jenis)" class="tkt-units wide"><strong>Unit Printer</strong><label v-for="p in (form.tiket_asal_id ? printers.filter(x => x.customer_id === form.customer_id && x.penempatan === 'trial') : availablePrinters)" :key="p.id"><input v-model="form.printer_ids" type="checkbox" :value="p.id" /> {{ p.mp_no }} · {{ p.master_printer_model?.nama_model }}</label><span v-if="!availablePrinters.length">Tidak ada unit sesuai kondisi dan lokasi yang dibutuhkan.</span></div>
+          <div v-if="form.jenis === 'penerimaan_printer'" class="tkt-new-units wide"><label>MP No<input v-model="form.newPrinters[0].mp_no" required /></label></div>
+          <template v-else-if="form.jenis === 'back_up'"><label>Unit Bermasalah<select v-model="form.printer_utama_id" required><option value="">Pilih Unit</option><option v-for="p in availablePrinters" :key="p.id" :value="p.id">{{ p.mp_no }}</option></select></label></template>
+          <p v-if="form.jenis === 'toner_purchase'" class="wide">Toner dan jumlah dicatat pada tab Items Surat Tugas.</p>
+          <div v-if="!['penerimaan_printer','toner_purchase','back_up'].includes(form.jenis)" class="tkt-units wide"><strong>Unit Printer</strong><label v-for="p in (form.tiket_asal_id ? printers.filter(x => x.customer_id === form.customer_id && x.penempatan === 'trial') : availablePrinters)" :key="p.id"><input v-model="form.printer_ids" type="checkbox" :value="p.id" @change="form.printer_ids = [p.id]" /> {{ p.mp_no }} · {{ p.master_printer_model?.nama_model }}</label><span v-if="!availablePrinters.length">Tidak ada unit sesuai kondisi dan lokasi yang dibutuhkan.</span></div>
         </template>
-        <div v-else class="tkt-facts"><span>Kategori: {{ categoryNames[selected.kategori] }}</span><span>Customer: {{ selected.master_customer?.nama_customer || '—' }}</span><span>Status: {{ selected.status }}</span><span v-for="line in selected.tiket_printer" :key="line.id">{{ line.peran }}: {{ line.mp_no }}</span></div>
+        <div v-else class="tkt-facts"><span>Kategori: {{ categoryNames[selected.kategori] }}</span><span>Customer: {{ selected.master_customer?.nama_customer || '—' }}</span><span>Status: {{ selected.status }}</span><span v-if="selected.mp_no">MP No: {{ selected.mp_no }}</span></div>
         <label v-if="(selected?.jenis || form.jenis) === 'internal_use'">Divisi / Lokasi Internal<input v-model="form.lokasi_internal" :readonly="!!selected?.pengaduan_lama_id" required /></label><label class="wide">Deskripsi<textarea v-model="form.deskripsi" rows="3" :readonly="!!selected?.pengaduan_lama_id" /></label><label v-if="(selected?.jenis || form.jenis) === 'return'">Alasan Return<input v-model="form.alasan" :readonly="!!selected?.pengaduan_lama_id" required /></label><label v-if="selected?.jenis === 'trial'">Hasil Trial<select v-model="form.hasil"><option value="">Belum ada hasil</option><option value="berhasil">Berhasil</option><option value="gagal">Gagal</option><option value="batal">Batal</option></select></label>
       </form>
       <div v-else><div class="tkt-subhead"><strong>Surat Tugas Terkait</strong><button v-if="canCreateSt" class="primary-button" type="button" @click="emit('open-surat', selected)">Buat Surat Tugas</button></div><div class="table-wrap"><table><thead><tr><th>Nomor</th><th>Jenis</th><th>Status</th></tr></thead><tbody><tr v-for="st in selected.surat_tugas" :key="st.id"><td>{{ st.nomor_surat_tugas }}</td><td>{{ st.jenis_tugas }}</td><td>{{ st.status }}</td></tr><tr v-if="!selected.surat_tugas?.length"><td colspan="3">Belum ada Surat Tugas.</td></tr></tbody></table></div></div>

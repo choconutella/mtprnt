@@ -9,39 +9,19 @@ const { mutasiSchema } = require("./stok.schema");
 
 const router = express.Router();
 
-function sertakanMasterTanpaStok(stokRows, masterRows, itemKey, masterKey) {
-  const itemDenganStok = new Set(stokRows.map((row) => row[itemKey]));
-  const tanpaStok = masterRows
-    .filter((master) => !itemDenganStok.has(master.id))
-    .map((master) => ({
-      id: `master-${masterKey}-${master.id}`,
-      gudang_id: null,
-      [itemKey]: master.id,
-      [masterKey]: master,
-      master_gudang: null,
-      jumlah_tersedia: "0.00",
-      jumlah_dicadangkan: "0.00",
-      belum_ditempatkan: true
-    }));
-
-  return [...stokRows, ...tanpaStok];
-}
-
 router.use(autentikasi);
 
 router.get("/", izin("stock_data", "view", "warehouse", "kepala-teknisi", "teknisi"), asyncHandler(async (req, res) => {
-  const [stokToner, stokSparepart, masterToner, masterSparepart, printerAvailable] = await Promise.all([
+  const [stokToner, stokSparepart, printerAvailable] = await Promise.all([
     prisma.stok_toner.findMany({ include: { master_gudang: true, master_toner: true } }),
     prisma.stok_suku_cadang.findMany({ include: { master_gudang: true, master_suku_cadang: true } }),
-    prisma.master_toner.findMany({ where: { aktif: true } }),
-    prisma.master_suku_cadang.findMany({ where: { aktif: true } }),
     prisma.master_printer.count({ where: { status: "available", lokasi_jenis: "gudang", kondisi: "ready" } })
   ]);
 
   return sukses(res, "Stok berhasil diambil.", {
-    toner: sertakanMasterTanpaStok(stokToner, masterToner, "toner_id", "master_toner"),
+    toner: stokToner,
     printer: [{ jumlah_tersedia: printerAvailable, jumlah_dicadangkan: 0 }],
-    suku_cadang: sertakanMasterTanpaStok(stokSparepart, masterSparepart, "suku_cadang_id", "master_suku_cadang")
+    suku_cadang: stokSparepart
   });
 }));
 
@@ -56,30 +36,45 @@ router.get("/mutasi", izin("stock_data", "view", "warehouse", "kepala-teknisi"),
 router.post("/mutasi", izin("stock_data", "create", "warehouse"), asyncHandler(async (req, res) => {
   const body = mutasiSchema.parse(req.body);
   const hasil = await prisma.$transaction(async (tx) => {
+    const [asal, tujuan] = await Promise.all([
+      body.gudang_asal_id ? tx.master_gudang.findUnique({ where: { id: body.gudang_asal_id } }) : null,
+      body.gudang_tujuan_id ? tx.master_gudang.findUnique({ where: { id: body.gudang_tujuan_id } }) : null
+    ]);
+    if ((body.gudang_asal_id && !asal) || (body.gudang_tujuan_id && !tujuan)) throw Object.assign(new Error("Gudang tidak ditemukan."), { statusCode: 422 });
+    const detail = await Promise.all(body.detail.map(async (line) => {
+      if (line.jenis_barang === "toner") {
+        const item = await tx.master_toner.findUnique({ where: { id: line.toner_id }, select: { kode_toner: true } });
+        if (!item) throw Object.assign(new Error("Toner tidak ditemukan."), { statusCode: 422 });
+        return { ...line, toner_id: item.kode_toner };
+      }
+      const item = await tx.master_suku_cadang.findUnique({ where: { id: line.suku_cadang_id }, select: { kode_suku_cadang: true } });
+      if (!item) throw Object.assign(new Error("Suku cadang tidak ditemukan."), { statusCode: 422 });
+      return { ...line, suku_cadang_id: item.kode_suku_cadang };
+    }));
     const mutasi = await tx.mutasi_stok.create({
       data: {
         nomor_mutasi: body.nomor_mutasi || buatNomor("MTS"),
         jenis_mutasi: body.jenis_mutasi,
-        gudang_asal_id: body.gudang_asal_id || null,
-        gudang_tujuan_id: body.gudang_tujuan_id || null,
+        gudang_asal_id: asal?.kode_gudang || null,
+        gudang_tujuan_id: tujuan?.kode_gudang || null,
         jenis_referensi: body.jenis_referensi || "manual",
         referensi_id: body.referensi_id || null,
         status: body.langsung_posting ? "terposting" : "draft",
         keterangan: body.keterangan || null,
-        dibuat_oleh: req.pengguna.id,
+        dibuat_oleh: req.pengguna.user_id,
         tanggal_terposting: body.langsung_posting ? new Date() : null
       }
     });
 
     await tx.detail_mutasi_stok.createMany({
-      data: body.detail.map((line) => ({
+      data: detail.map((line) => ({
         mutasi_stok_id: mutasi.id,
         ...line
       }))
     });
 
     if (body.langsung_posting) {
-      await terapkanMutasi(tx, mutasi, body.detail, req);
+      await terapkanMutasi(tx, mutasi, detail, req);
     }
 
     return mutasi;

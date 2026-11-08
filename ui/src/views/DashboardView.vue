@@ -459,7 +459,7 @@ const configs = {
     flow: "suratTugas",
     fields: [
       field("nomor_surat_tugas", "ID Surat Tugas", "text", false, [], { readonly: true, placeholder: "Generate otomatis" }),
-      relation("pengaduan_id", "No. Komplain", "pengaduan", "nomor_pengaduan"),
+      relation("tiket_id", "No. Komplain", "pengaduan", "nomor_pengaduan"),
       field("mp_no", "MP No", "text", true),
       relation("account_id", "Account", "account", "nama_account", true),
       relation("customer_id", "Customer", "customer", "nama_customer", true),
@@ -829,7 +829,7 @@ const currentFormFields = computed(() => currentConfig.value?.fields || []);
 const currentVisibleFormFields = computed(() => currentFormFields.value.filter(tampilkanFieldForm));
 const relatedSuratTugas = computed(() => {
   if (currentConfig.value?.flow !== "pengaduan" || !form.id) return [];
-  return options.suratTugas.filter((item) => item.pengaduan_id === form.id);
+  return options.suratTugas.filter((item) => item.tiket_id === form.id);
 });
 const pemakaianSuratAktif = computed(() => {
   if (currentConfig.value?.flow !== "suratTugas") return [];
@@ -1157,8 +1157,7 @@ function picSurat(item) {
 
 function nomorKomplainSurat(item) {
   if (item?.tiket?.nomor_tiket) return item.tiket.nomor_tiket;
-  if (item?.pengaduan?.nomor_pengaduan) return item.pengaduan.nomor_pengaduan;
-  return options.pengaduan.find((row) => row.id === item?.pengaduan_id)?.nomor_pengaduan || "-";
+  return options.pengaduan.find((row) => row.id === item?.tiket_id)?.nomor_pengaduan || "-";
 }
 
 function alamatSurat(item) {
@@ -1407,7 +1406,7 @@ function canDeactivateItem(item) {
 function canResolveComplaintItem(item) {
   if (!(isAdmin.value || roleAktif.value === "sales_admin")) return false;
   if (["solved", "cancelled"].includes(item?.status)) return false;
-  const suratTerkait = options.suratTugas.filter((surat) => surat.pengaduan_id === item?.id);
+  const suratTerkait = options.suratTugas.filter((surat) => surat.tiket_id === item?.id);
   return suratTerkait.length > 0 && suratTerkait.every((surat) => surat.status === "solved");
 }
 
@@ -1447,8 +1446,8 @@ async function handleFieldChange(name) {
     const printer = options.printerTerpasang.find((row) => row.id === form.printer_id);
     if (printer) form.mp_no = printer.mp_no;
   }
-  if (currentConfig.value?.flow === "suratTugas" && name === "pengaduan_id") {
-    const pengaduan = options.pengaduan.find((item) => item.id === form.pengaduan_id);
+  if (currentConfig.value?.flow === "suratTugas" && name === "tiket_id") {
+    const pengaduan = options.pengaduan.find((item) => item.id === form.tiket_id);
     if (!pengaduan) return;
     form.mp_no = pengaduan.mp_no || "";
     form.account_id = pengaduan.account_id || "";
@@ -1860,7 +1859,7 @@ function buatSuratDariKomplain() {
   const sumber = { ...form };
   activeView.value = "suratTugas";
   bukaForm(null, {
-    pengaduan_id: sumber.id || "",
+    tiket_id: sumber.id || "",
     mp_no: sumber.mp_no || "",
     account_id: sumber.account_id || "",
     customer_id: sumber.customer_id || "",

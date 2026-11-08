@@ -66,9 +66,9 @@ function locationChanged() {
 }
 
 function locationLabel(row) {
-  if (row.status === "installed") return `Customer: ${row.master_account?.nama_account || "-"} / ${row.master_customer?.nama_customer || "-"}`;
+  if (row.status === "installed") return `${row.master_account?.nama_account || "-"} / ${row.master_customer?.nama_customer || "-"}`;
   if (row.status === "issued") return "Dalam proses surat tugas";
-  return `Gudang: ${row.master_gudang?.nama_gudang || "-"}`;
+  return `${row.master_gudang?.nama_gudang || "-"}`;
 }
 
 function statusLabel(status) {

@@ -125,15 +125,16 @@ async function save() {
   }
 }
 
-async function deactivate(row: Row) {
-  if (!canWrite.value || !window.confirm(`Nonaktifkan user ${row.user_id}?`))
-    return;
+async function toggleActive(row: Row) {
+  if (!canWrite.value) return;
+  const nextStatus = !row.active;
+  if (!window.confirm(`${nextStatus ? "Aktifkan" : "Nonaktifkan"} user ${row.user_id}?`)) return;
   try {
-    await request(`/pengguna/${row.id}`, { method: "DELETE" });
-    successMessage.value = "Pengguna berhasil dinonaktifkan.";
+    await request(`/pengguna/${row.id}`, { method: "PUT", body: { active: nextStatus } });
+    successMessage.value = `Pengguna berhasil ${nextStatus ? "diaktifkan" : "dinonaktifkan"}.`;
     await load();
   } catch (error) {
-    errorMessage.value = message(error, "Pengguna gagal dinonaktifkan.");
+    errorMessage.value = message(error, `Pengguna gagal ${nextStatus ? "diaktifkan" : "dinonaktifkan"}.`);
   }
 }
 
@@ -235,11 +236,11 @@ onMounted(load);
             />
             <UButton
               size="xs"
-              color="warning"
+              :color="row.original.active ? 'warning' : 'success'"
               variant="ghost"
-              icon="i-lucide-power"
-              aria-label="Nonaktifkan"
-              @click="deactivate(row.original)"
+              :icon="row.original.active ? 'i-lucide-power-off' : 'i-lucide-power'"
+              :aria-label="row.original.active ? 'Nonaktifkan' : 'Aktifkan'"
+              @click="toggleActive(row.original)"
             />
           </div>
           <span

@@ -17,11 +17,13 @@ const ROLE_LABELS = {
 const ROLE_VALUES = Object.keys(ROLE_LABELS);
 
 function normalisasiRole(role) {
-  return ROLE_ALIASES[role] || role;
+  const nilai = String(role || "").trim().toLowerCase().replace(/\s+/g, "-");
+  return ROLE_ALIASES[nilai] || nilai;
 }
 
 function tampilkanRole(role) {
-  return ROLE_LABELS[role] || role;
+  const nilai = normalisasiRole(role);
+  return ROLE_LABELS[nilai] || nilai;
 }
 
 module.exports = {

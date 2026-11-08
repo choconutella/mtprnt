@@ -41,7 +41,7 @@ const eventWorkflow = [
 ];
 
 function eventDariAudit(item) {
-  const dokumen = item.jenis_dokumen === "pengaduan" ? "tiket" : item.jenis_dokumen;
+  const dokumen = item.jenis_dokumen;
   const event = eventWorkflow.find((row) => row.dokumen === dokumen && row.aksi === item.aksi);
   return event || {
     kode: "Z99",
@@ -61,7 +61,7 @@ function formatAudit(item) {
     event_kode: event.kode,
     event_nama: event.nama,
     event_label: event.nama,
-    tabel_keterangan: `${item.jenis_dokumen === "pengaduan" ? "tiket arsip" : item.jenis_dokumen} ${item.nomor_dokumen}: ${item.keterangan || event.nama}${statusText}`
+    tabel_keterangan: `${dokumen} ${item.nomor_dokumen}: ${item.keterangan || event.nama}${statusText}`
   };
 }
 
@@ -84,7 +84,7 @@ router.get("/", izin("audit_trail", "view", "sales-admin", "kepala-teknisi", "wa
 
   if (query.nomor_tiket) {
     OR.push({
-      jenis_dokumen: { in: ["tiket", "pengaduan"] },
+      jenis_dokumen: { in: ["tiket"] },
       nomor_dokumen: { contains: query.nomor_tiket, mode: "insensitive" }
     });
   }
@@ -113,7 +113,7 @@ router.get("/", izin("audit_trail", "view", "sales-admin", "kepala-teknisi", "wa
 router.get("/tiket/:nomor_tiket", izin("audit_trail", "view", "sales-admin", "kepala-teknisi", "warehouse"), asyncHandler(async (req, res) => {
   const items = await prisma.riwayat_audit.findMany({
     where: {
-      jenis_dokumen: { in: ["tiket", "pengaduan"] },
+      jenis_dokumen: { in: ["tiket"] },
       nomor_dokumen: req.params.nomor_tiket
     },
     orderBy: { tanggal_audit: "asc" }

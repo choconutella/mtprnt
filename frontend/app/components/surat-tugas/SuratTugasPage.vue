@@ -41,6 +41,7 @@ const formItems = ref<Row[]>([]);
 const addItemOpen = ref(false);
 const addItemKind = ref("printer");
 const pendingPrinterIds = ref<string[]>([]);
+const removedPrinterLineIds = ref<string[]>([]);
 const formItemColumns = [
   { accessorKey: "jenis_barang", header: "Jenis" },
   { accessorKey: "item", header: "Item" },
@@ -86,21 +87,39 @@ const kinds: Record<string, string> = {
   kirim_trial: "Pengiriman Trial",
   kirim_stand_by: "Pengiriman Stand-by",
   kirim_event: "Pengiriman Event",
-  kirim_sell: "Penjualan",
-  kirim_toner: "Pengiriman Toner",
+  kirim_sell: "Penjualan Printer",
+  kirim_toner: "Penjualan Toner",
   on_site_service: "On-site Service",
-  kirim_back_up: "Pengiriman Back-up",
+  kirim_back_up: "Back-up",
   terima_unit_rusak: "Terima Unit Rusak",
   repair: "Repair",
   qc: "QC",
   internal_use: "Internal Use",
   terima_return: "Return",
-  terima_printer_baru: "Penerimaan Printer",
+  terima_printer_baru: "Printer Baru",
   maintenance: "Maintenance",
 };
 const role = computed(() =>
   String(auth.user.value?.role || "").replaceAll("-", "_"),
 );
+const unitPrinterKinds = ["repair", "on_site_service", "maintenance"];
+const serviceHandoverKinds = ["on_site_service", "repair", "maintenance"];
+const warehouseOutboundKinds = [
+  "kirim_kontrak",
+  "kirim_trial",
+  "kirim_stand_by",
+  "kirim_event",
+  "kirim_sell",
+  "kirim_toner",
+  "kirim_back_up",
+  "internal_use",
+  ...serviceHandoverKinds,
+];
+const canShowUnitPrinterTab = computed(() => Boolean(
+  editing.value
+  && unitPrinterKinds.includes(editing.value.jenis_tugas)
+  && editing.value.surat_tugas_printer?.length,
+));
 const canCreate = computed(() =>
   ["admin", "kepala_teknisi", "warehouse"].includes(role.value),
 );
@@ -117,6 +136,14 @@ const filteredRows = computed(() => {
 const selectedTicket = computed(() =>
   options.tickets.find((row) => row.id === form.tiket_id),
 );
+function accountCode(value: string | null | undefined) {
+  if (!value) return "";
+  return options.accounts.find((row) => row.kode_account === value || row.id === value)?.kode_account || value;
+}
+function customerCode(value: string | null | undefined) {
+  if (!value) return "";
+  return options.customers.find((row) => row.kode_customer === value || row.id === value)?.kode_customer || value;
+}
 const maintenancePrinterId = computed({
   get: () => form.printer_ids[0] || "",
   set: (value: string) => {
@@ -129,7 +156,7 @@ const solvedDetails = computed(() => {
   const add = (label: string, value: unknown) => {
     if (value !== null && value !== undefined && value !== "") fields.push({ label, value: String(value) });
   };
-  const label = (items: Row[], id: string, key: string) => items.find((item) => item.id === id)?.[key] || id;
+  const label = (items: Row[], id: string, key: string) => items.find((item) => item.id === id || item.kode_account === id || item.kode_customer === id)?.[key] || id;
   add("Tiket", selectedTicket.value?.nomor_tiket || editing.value.tiket?.nomor_tiket);
   add("Jenis Surat Tugas", kinds[form.jenis_tugas] || form.jenis_tugas);
   add("Customer / Site", label(options.customers, form.customer_id, "nama_customer"));
@@ -160,14 +187,17 @@ const canAddFormItem = computed(
   () => !!editing.value && editing.value.status === "progress"
     && ["admin", "teknisi"].includes(role.value),
 );
+const printerIsServiceObject = computed(() => form.jenis_tugas === "maintenance"
+  || (form.jenis_tugas === "on_site_service" && !!form.tiket_id));
 const displayedItems = computed(() => [
-  ...(form.jenis_tugas === "maintenance" ? [] : form.printer_ids.map((id) => ({
+  ...(printerIsServiceObject.value ? [] : form.printer_ids.map((id) => ({
     jenis_barang: "printer",
     item: options.printers.find((row) => row.id === id)?.mp_no || id,
     gudang: "-",
     jumlah_pakai: 1,
     keterangan: "",
     printer_id: id,
+    line_id: editing.value?.surat_tugas_printer?.find((line: Row) => line.printer_id === id || line.mp_no === options.printers.find((row) => row.id === id)?.mp_no)?.id,
   }))),
   ...(form.jenis_tugas === "terima_printer_baru" && form.new_mp_no
     ? [{ jenis_barang: "printer", item: form.new_mp_no, gudang: "-", jumlah_pakai: 1, keterangan: "", fixed: true }]
@@ -177,14 +207,14 @@ const displayedItems = computed(() => [
 const categoryToKinds: Record<string, string[]> = {
   delivery: [
     "kirim_kontrak",
-    "terima_tukar",
+    "terima_return",
     "kirim_trial",
     "kirim_stand_by",
     "kirim_event",
     "kirim_sell",
     "kirim_toner",
   ],
-  komplain: ["on_site_service", "kirim_back_up", "terima_unit_rusak"],
+  komplain: ["on_site_service", "kirim_back_up", "terima_return"],
   internal: ["repair", "qc", "internal_use"],
   inbound: ["terima_return", "terima_printer_baru"],
   maintenance: ["maintenance"],
@@ -197,6 +227,7 @@ const kindItems = computed(() => {
     .filter(
       ([key]) =>
         allowed.includes(key) &&
+        !["terima_tukar", "terima_unit_rusak"].includes(key) &&
         (role.value !== "warehouse" || key.startsWith("terima_")),
     )
     .map(([value, label]) => ({ label, value }));
@@ -222,7 +253,7 @@ const customerItems = computed(() =>
         row.account;
       return {
         label: `${row.nama_customer}${account?.nama_account ? ` · ${account.nama_account}` : ""}`,
-        value: row.id,
+        value: row.kode_customer,
       };
     }),
 );
@@ -314,12 +345,18 @@ async function loadCustomers(query: string, initial = false) {
     if (requestId === customerSearchRequest) customerLoading.value = false;
   }
 }
+const selectedCustomerUuid = computed(() => {
+  const customer = options.customers.find((row) => row.kode_customer === form.customer_id || row.id === form.customer_id)
+    || (selectedTicket.value?.master_customer?.kode_customer === form.customer_id ? selectedTicket.value.master_customer : null)
+    || (editing.value?.master_customer?.kode_customer === form.customer_id ? editing.value.master_customer : null);
+  return customer?.id || "";
+});
 const printerLocationParams = computed(() => {
   const shouldUseCustomer =
     isInbound.value ||
     ["on_site_service", "maintenance"].includes(form.jenis_tugas);
   return shouldUseCustomer && form.customer_id
-    ? { customer_id: form.customer_id }
+    ? (selectedCustomerUuid.value ? { customer_id: selectedCustomerUuid.value } : {})
     : form.gudang_id
       ? { gudang_id: form.gudang_id }
       : {};
@@ -328,6 +365,11 @@ async function loadPrinters(query = "", initial = false) {
   const normalized = query.trim();
   if (!initial && normalized.length < 2) return;
   const requestId = ++printerSearchRequest;
+  if (form.customer_id && (isInbound.value || ["on_site_service", "maintenance"].includes(form.jenis_tugas)) && !selectedCustomerUuid.value) {
+    options.printers = [];
+    errorMessage.value = "Customer untuk pencarian unit belum dimuat.";
+    return;
+  }
   if (form.jenis_tugas === "maintenance" && !selectedTicket.value && !form.gudang_id) {
     options.printers = [];
     return;
@@ -426,6 +468,7 @@ function resetForm() {
   formTab.value = "detail";
   addItemOpen.value = false;
   formItems.value = [];
+  removedPrinterLineIds.value = [];
   Object.assign(formItem, {
     jenis_barang: "toner",
     item_id: "",
@@ -445,6 +488,7 @@ function openCreate() {
 async function openEdit(row: Row) {
   saving.value = true;
   errorMessage.value = "";
+  removedPrinterLineIds.value = [];
   try {
     const response = await request<Row>(`/surat-tugas/${row.id}`);
     const item = response.data || row;
@@ -480,12 +524,12 @@ async function openEdit(row: Row) {
       tiket_id: item.tiket_id || ticket?.id || "",
       jenis_tugas: item.jenis_tugas || item.jenis_pekerjaan || "",
       mode: item.mode || ticket?.mode || "",
-      account_id: item.account_id || ticket?.account_id || "",
-      customer_id: item.customer_id || ticket?.customer_id || "",
+      account_id: accountCode(item.account_id || ticket?.account_id),
+      customer_id: customerCode(item.customer_id || ticket?.customer_id),
       kontrak_id: item.kontrak_id || ticket?.kontrak_id || "",
       unit_asal_id: item.unit_asal_id || "",
       gudang_id: item.gudang_id || "",
-      pic_teknisi_id: item.teknisi_surat_tugas?.[0]?.teknisi_id || "",
+      pic_teknisi_id: item.teknisi_surat_tugas?.[0]?.master_pengguna?.id || item.teknisi_surat_tugas?.[0]?.teknisi_id || "",
       pic_warehouse_id: item.pic_warehouse_id || "",
       lokasi_internal: item.lokasi_internal || ticket?.lokasi_internal || "",
       sumber: item.sumber || "",
@@ -512,22 +556,45 @@ async function openEdit(row: Row) {
 }
 function useTicket() {
   const ticket = selectedTicket.value;
+  if (ticket?.master_customer && !options.customers.some((row) => row.id === ticket.master_customer.id))
+    options.customers.push(ticket.master_customer);
   Object.assign(form, {
-    account_id: ticket?.account_id || "",
-    customer_id: ticket?.customer_id || "",
+    tiket_id: ticket?.id || form.tiket_id || "",
+    account_id: ticket?.master_account?.kode_account || accountCode(ticket?.account_id),
+    customer_id: ticket?.master_customer?.kode_customer || customerCode(ticket?.customer_id),
     mode: ticket?.mode || "",
     kontrak_id: ticket?.kontrak_id || "",
     lokasi_internal: ticket?.lokasi_internal || "",
     jenis_tugas: "",
+    new_mp_no: ticket?.mp_no || "",
+    unit_asal_id: "",
+    printer_ids: [],
   });
+  if (ticket?.mp_no && !options.printers.some((row) => row.mp_no === ticket.mp_no)) {
+    const params = new URLSearchParams({ cari: ticket.mp_no, halaman: "1", batas: "20" });
+    request<Row>(`/printer?${params}`).then((response) => {
+      const found = unwrap(response).find((row) => row.mp_no === ticket.mp_no);
+      if (found && !options.printers.some((row) => row.id === found.id)) options.printers.push(found);
+      selectTicketObject();
+    }).catch((error) => { errorMessage.value = message(error, "Unit objek Tiket gagal dimuat."); });
+  } else selectTicketObject();
+}
+function selectTicketObject() {
+  const unit = options.printers.find((row) => row.mp_no === selectedTicket.value?.mp_no);
+  if (!unit) return;
+  const replacement = form.jenis_tugas === "kirim_back_up" || form.jenis_tugas === "kirim_kontrak" && form.mode === "tukar";
+  if (replacement) form.unit_asal_id = unit.id;
+  else if (form.jenis_tugas && !["kirim_toner", "terima_printer_baru"].includes(form.jenis_tugas)) form.printer_ids = [unit.id];
 }
 function selectCustomer(customerId: string) {
-  const customer = options.customers.find((row) => row.id === customerId);
-  form.account_id = customer?.account_id || "";
+  const customer = options.customers.find((row) => row.kode_customer === customerId || row.id === customerId);
+  const account = options.accounts.find((row) => row.id === customer?.account_id || row.kode_account === customer?.account_id);
+  form.account_id = account?.kode_account || customer?.master_account?.kode_account || "";
 }
 function changeKind() {
   form.printer_ids = [];
   if (form.jenis_tugas !== "kirim_kontrak") form.kontrak_id = "";
+  selectTicketObject();
 }
 function changeWarehouse() {
   if (form.jenis_tugas === "maintenance" && !selectedTicket.value) {
@@ -552,16 +619,16 @@ function payload() {
           .map((row) => ({
             printer_id: row.id,
             mp_no: row.mp_no,
-            model_id: row.model_id,
+            model_id: row.master_printer_model?.id || row.model_id,
             serial_number: row.serial_number,
-            peran: "utama",
+            peran: form.jenis_tugas === "kirim_back_up" ? "pengganti" : form.jenis_tugas === "terima_tukar" ? "unit_lama" : "utama",
           }));
   return {
-    tiket_id: form.tiket_id || null,
+    tiket_id: ticket?.id || form.tiket_id || null,
     jenis_tugas: form.jenis_tugas,
     mode: form.mode || null,
-    account_id: ticket?.account_id || form.account_id || null,
-    customer_id: ticket?.customer_id || form.customer_id || null,
+    account_id: ticket?.master_account?.kode_account || accountCode(ticket?.account_id || form.account_id) || null,
+    customer_id: ticket?.master_customer?.kode_customer || customerCode(ticket?.customer_id || form.customer_id) || null,
     kontrak_id: ticket?.kontrak_id || form.kontrak_id || null,
     unit_asal_id: form.unit_asal_id || null,
     gudang_id: form.gudang_id || null,
@@ -599,7 +666,7 @@ function addFormItem() {
 }
 function openAddItem() {
   pendingPrinterIds.value = [...form.printer_ids];
-  addItemKind.value = form.jenis_tugas === "maintenance" ? "toner" : "printer";
+  addItemKind.value = printerIsServiceObject.value ? "toner" : "printer";
   addItemOpen.value = true;
 }
 function confirmAddItem() {
@@ -618,6 +685,12 @@ function confirmAddItem() {
 }
 function removeFormItem(index: number) {
   if (!formItems.value[index]?.existing) formItems.value.splice(index, 1);
+}
+function removeDisplayedPrinter(item: Row) {
+  if (item.line_id && !removedPrinterLineIds.value.includes(item.line_id)) {
+    removedPrinterLineIds.value.push(item.line_id);
+  }
+  form.printer_ids = form.printer_ids.filter((id) => id !== item.printer_id);
 }
 function formItemName(item: Row) {
   return (
@@ -654,8 +727,9 @@ async function saveFormItems(suratId: string) {
     item.existing = true;
   }
 }
-async function saveUnitResults(surat: Row) {
+async function saveUnitResults(surat: Row, skippedLineIds: string[] = []) {
   for (const line of surat.surat_tugas_printer || []) {
+    if (skippedLineIds.includes(line.id)) continue;
     const result = resultForms[line.id];
     if (!result) continue;
     const hasil = result.hasil.trim();
@@ -687,7 +761,9 @@ async function create() {
     if (props.embedded) emit("created");
     else await load();
   } catch (error) {
-    errorMessage.value = message(error, "Surat Tugas gagal dibuat.");
+    const detail = (error as { data?: { detail?: { fieldErrors?: Record<string, string[]> } } }).data?.detail?.fieldErrors;
+    const fields = detail && Object.entries(detail).flatMap(([field, errors]) => errors.map((item) => `${field}: ${item}`));
+    errorMessage.value = fields?.length ? fields.join("; ") : message(error, "Surat Tugas gagal dibuat.");
   } finally {
     saving.value = false;
   }
@@ -715,24 +791,27 @@ async function saveEdit() {
   errorMessage.value = "";
   try {
     const ticket = selectedTicket.value;
-    const selectedPrinter = options.printers.find((row) => form.printer_ids.includes(row.id));
     await request(`/surat-tugas/${editing.value.id}`, {
       method: "PUT",
       body: {
-        account_id: ticket?.account_id || form.account_id || null,
-        customer_id: ticket?.customer_id || form.customer_id || null,
+        account_id: accountCode(ticket?.account_id || form.account_id) || null,
+        customer_id: customerCode(ticket?.customer_id || form.customer_id) || null,
         pic_teknisi_id: form.pic_teknisi_id || null,
         jenis_pekerjaan: form.jenis_tugas,
         mode: form.mode || null,
-        printer_id: form.jenis_tugas === "maintenance" && !form.tiket_id ? null : selectedPrinter?.id || null,
-        mp_no: selectedPrinter?.mp_no || form.new_mp_no || null,
         hasil: form.hasil || null,
       },
     });
+    const removedLineIds = [...removedPrinterLineIds.value];
+    for (const lineId of removedLineIds) {
+      await request(`/surat-tugas/${editing.value.id}/printer/${lineId}`, { method: "DELETE" });
+      removedPrinterLineIds.value = removedPrinterLineIds.value.filter((id) => id !== lineId);
+    }
     await saveFormItems(editing.value.id);
-    await saveUnitResults(surat);
+    await saveUnitResults(surat, removedLineIds);
     createOpen.value = false;
     editing.value = null;
+    removedPrinterLineIds.value = [];
     successMessage.value = "Surat Tugas berhasil diperbarui.";
     await load();
   } catch (error) {
@@ -754,7 +833,7 @@ function canAct(action: string, row = editing.value) {
       row.status === "progress" &&
       !row.konfirmasi_keluar_pada &&
       !isInboundRow(row) &&
-      (String(row.jenis_tugas || "").startsWith("kirim_") ||
+      (warehouseOutboundKinds.includes(row.jenis_tugas) ||
         (row.pemakaian_barang_surat_tugas || []).length > 0) &&
       (row.jenis_tugas !== "kirim_toner" ||
         (row.pemakaian_barang_surat_tugas || []).some((item: Row) => item.jenis_barang === "toner"))
@@ -764,9 +843,8 @@ function canAct(action: string, row = editing.value) {
       worker &&
       row.status === "progress" &&
       !row.konfirmasi_serah_pada &&
-      String(row.jenis_tugas || "").startsWith("kirim_") &&
-      (row.konfirmasi_keluar_pada ||
-        (row.jenis_tugas === "kirim_kontrak" && row.tiket?.tiket_asal_id))
+      serviceHandoverKinds.includes(row.jenis_tugas) &&
+      !!row.konfirmasi_keluar_pada
     );
   if (action === "terima")
     return (
@@ -780,7 +858,8 @@ function canAct(action: string, row = editing.value) {
       isInboundRow(row)
         ? store && row.status === "warehouse_validated"
         : worker && row.status === "progress" &&
-          (!String(row.jenis_tugas || "").startsWith("kirim_") || !!row.konfirmasi_serah_pada) &&
+          (!warehouseOutboundKinds.includes(row.jenis_tugas) || !!row.konfirmasi_keluar_pada) &&
+          (!serviceHandoverKinds.includes(row.jenis_tugas) || !!row.konfirmasi_serah_pada) &&
           (!(row.pemakaian_barang_surat_tugas || []).some((item: Row) => item.jenis_barang !== "printer") || !!row.konfirmasi_keluar_pada)
     );
   if (action === "resolve")
@@ -899,6 +978,11 @@ watch(printerSearch, (value) => {
   if (printerSearchTimer) clearTimeout(printerSearchTimer);
   printerLoading.value = true;
   printerSearchTimer = setTimeout(() => loadPrinters(value), 300);
+});
+watch(() => form.mode, () => {
+  if (!selectedTicket.value) return;
+  form.printer_ids = [];
+  selectTicketObject();
 });
 watch(
   [() => form.customer_id, () => form.gudang_id, () => form.jenis_tugas],
@@ -1067,7 +1151,7 @@ watch(
                 Items ({{ displayedItems.length }})
               </UButton>
               <UButton
-                v-if="editing?.jenis_tugas && editing.surat_tugas_printer?.length"
+                v-if="canShowUnitPrinterTab"
                 type="button"
                 class="justify-start"
                 :variant="formTab === 'unit' ? 'soft' : 'ghost'"
@@ -1185,7 +1269,7 @@ watch(
                     .filter(
                       (row) =>
                         row.status === 'aktif' &&
-                        row.customer_id === form.customer_id,
+                        row.customer_id === selectedCustomerUuid,
                     )
                     .map((row) => ({ label: row.nomor_kontrak, value: row.id }))
                 "
@@ -1204,12 +1288,19 @@ watch(
             <UFormField
               label="Unit Lama"
             >
-                      <USelect
-                        v-model="form.unit_asal_id"
-                        :items="printerItems"
-                        placeholder="Pilih unit customer"
-                        class="w-full"
-                      />
+              <UInput
+                v-if="form.jenis_tugas === 'kirim_back_up' && selectedTicket"
+                :model-value="selectedTicket.mp_no || '-'"
+                readonly
+                class="w-full"
+              />
+              <USelect
+                v-else
+                v-model="form.unit_asal_id"
+                :items="printerItems"
+                placeholder="Pilih unit customer"
+                class="w-full"
+              />
             </UFormField>
           </div>
           <div
@@ -1358,7 +1449,7 @@ watch(
           </div>
           </div>
           <div
-            v-else-if="formTab === 'unit' && editing"
+            v-else-if="formTab === 'unit' && canShowUnitPrinterTab"
             class="space-y-3"
           >
             <UCard
@@ -1428,7 +1519,7 @@ watch(
                     variant="ghost"
                     icon="i-lucide-trash-2"
                     aria-label="Hapus printer"
-                    @click="form.printer_ids = form.printer_ids.filter((id) => id !== row.original.printer_id)"
+                    @click="removeDisplayedPrinter(row.original)"
                   />
                   <UButton
                     v-else-if="!row.original.existing && !row.original.fixed"
@@ -1454,7 +1545,7 @@ watch(
             />
             <div class="flex justify-end">
               <UButton
-                v-if="editing?.status !== 'solved' && (form.jenis_tugas !== 'maintenance' || canAddFormItem)"
+                v-if="editing?.status !== 'solved' && (!printerIsServiceObject || canAddFormItem)"
                 type="button"
                 color="primary"
                 variant="outline"
@@ -1556,7 +1647,7 @@ watch(
             <USelect
               v-model="addItemKind"
               :items="[
-                ...(form.jenis_tugas === 'maintenance' ? [] : [{ label: 'Printer', value: 'printer' }]),
+                ...(printerIsServiceObject ? [] : [{ label: 'Printer', value: 'printer' }]),
                 ...(canAddFormItem ? [{ label: 'Toner', value: 'toner' }, { label: 'Sparepart', value: 'suku_cadang' }] : []),
               ]"
               class="w-full"

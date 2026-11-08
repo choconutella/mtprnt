@@ -171,7 +171,17 @@ function openEdit(row: Row) {
   modelModalOpen.value = false
   warehouseModalOpen.value = false
   if (props.mode === 'kategori') Object.assign(form, { kode_kategori: row.kode_kategori, nama_kategori: row.nama_kategori, aktif: row.aktif })
-  if (props.mode === 'model') Object.assign(form, { kategori_id: row.kategori_id, kode_model: row.kode_model, merek: row.merek, nama_model: row.nama_model, aktif: row.aktif })
+  if (props.mode === 'model') {
+    const kategori = row.master_printer_kategori
+      || categories.value.find(item => item.id === row.kategori_id || item.kode_kategori === row.kategori_id)
+    Object.assign(form, {
+      kategori_id: kategori?.id || row.kategori_id,
+      kode_model: row.kode_model,
+      merek: row.merek,
+      nama_model: row.nama_model,
+      aktif: row.aktif
+    })
+  }
   if (props.mode === 'unit') Object.assign(form, {
     mp_no: row.mp_no, serial_number: row.serial_number || '', model_id: row.model_id, gudang_id: row.gudang_id,
     tanggal_pembelian: row.tanggal_pembelian?.slice?.(0, 10) || '', tanggal_maintenance_berikutnya: row.tanggal_maintenance_berikutnya?.slice?.(0, 10) || '',
@@ -370,23 +380,16 @@ async function createWarehouse() {
   }
 }
 
-async function deactivate(row: Row) {
-  if (!window.confirm(`Nonaktifkan ${row.nama_kategori || row.nama_model || row.mp_no}?`)) return
+async function toggleActive(row: Row) {
+  if (isUnit.value) return
+  const nextStatus = !row.aktif
+  if (!window.confirm(`${nextStatus ? 'Aktifkan' : 'Nonaktifkan'} ${row.nama_kategori || row.nama_model}?`)) return
   try {
-    await request(`${endpoint.value}/${row.id}`, { method: 'DELETE' })
+    await request(`${endpoint.value}/${row.id}`, { method: 'PUT', body: { aktif: nextStatus } })
+    successMessage.value = `${title.value} berhasil ${nextStatus ? 'diaktifkan' : 'dinonaktifkan'}.`
     await loadRows()
   } catch (error) {
-    errorMessage.value = message(error, 'Data gagal dinonaktifkan.')
-  }
-}
-
-async function hardDelete(row: Row) {
-  if (!window.confirm('Hapus data secara permanen?')) return
-  try {
-    await request(`${endpoint.value}/${row.id}/permanent`, { method: 'DELETE' })
-    await loadRows()
-  } catch (error) {
-    errorMessage.value = message(error, 'Data gagal dihapus permanen.')
+    errorMessage.value = message(error, `Data gagal ${nextStatus ? 'diaktifkan' : 'dinonaktifkan'}.`)
   }
 }
 
@@ -539,7 +542,7 @@ onMounted(load)
               />
               <UButton
                 size="xs"
-                color="warning"
+                :color="row.original.aktif ? 'warning' : 'success'"
                 variant="ghost"
                 label="Withdraw"
                 @click="openAction(row.original, 'withdraw')"
@@ -557,9 +560,9 @@ onMounted(load)
                 size="xs"
                 color="warning"
                 variant="ghost"
-                icon="i-lucide-power"
-                aria-label="Nonaktifkan"
-                @click="deactivate(row.original)"
+                :icon="row.original.aktif ? 'i-lucide-power-off' : 'i-lucide-power'"
+                :aria-label="row.original.aktif ? 'Nonaktifkan' : 'Aktifkan'"
+                @click="toggleActive(row.original)"
               />
             </template>
           </div>

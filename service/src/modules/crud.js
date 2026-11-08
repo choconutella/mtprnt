@@ -30,7 +30,7 @@ async function tandaiHapusPermanen(items, options) {
   return Promise.all(
     items.map(async (item) => ({
       ...item,
-      boleh_hapus_permanen: !(await relasiTerpakai(options.relationChecks, item.id))
+      boleh_hapus_permanen: !(await relasiTerpakai(options.relationChecks, options.businessKey ? item[options.businessKey] : item.id))
     }))
   );
 }
@@ -43,6 +43,7 @@ function buatCrudRouter(options) {
   const listQuerySchema = options.listQuerySchema ? querySchema.extend(options.listQuerySchema) : querySchema;
   const kolomCari = options.kolomCari || [];
   const softDelete = options.softDelete !== false;
+  const deleteEnabled = options.deleteEnabled !== false;
   const roleTulis = options.roleTulis || ["admin"];
   const modulKey = options.modulKey || "master_data";
   const roleLihat = options.roleLihat || ["admin", ...roleTulis];
@@ -121,7 +122,7 @@ function buatCrudRouter(options) {
     return sukses(res, "Data berhasil diperbarui.", item);
   }));
 
-  router.delete("/:id/permanent", izin(modulKey, "delete", ...roleTulis), asyncHandler(async (req, res) => {
+  if (deleteEnabled) router.delete("/:id/permanent", izin(modulKey, "delete", ...roleTulis), asyncHandler(async (req, res) => {
     if (!options.hardDelete) {
       return gagal(res, "Hapus permanen tidak tersedia untuk modul ini.", 405);
     }
@@ -129,7 +130,8 @@ function buatCrudRouter(options) {
     const item = await model.findUnique({ where: { id: req.params.id } });
     if (!item) return gagal(res, "Data tidak ditemukan.", 404);
 
-    const relasi = await relasiTerpakai(options.relationChecks, req.params.id);
+    const itemKey = options.businessKey ? item[options.businessKey] : item.id;
+    const relasi = await relasiTerpakai(options.relationChecks, itemKey);
     if (relasi) {
       return gagal(res, `Data tidak bisa dihapus permanen karena sudah dipakai di ${relasi}.`, 409);
     }
@@ -145,7 +147,7 @@ function buatCrudRouter(options) {
     return sukses(res, "Data berhasil dihapus permanen.");
   }));
 
-  router.delete("/:id", izin(modulKey, "delete", ...roleTulis), asyncHandler(async (req, res) => {
+  if (deleteEnabled) router.delete("/:id", izin(modulKey, "delete", ...roleTulis), asyncHandler(async (req, res) => {
     if (!softDelete) {
       await model.delete({ where: { id: req.params.id } });
       return sukses(res, "Data berhasil dihapus.");

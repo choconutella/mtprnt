@@ -122,31 +122,19 @@ async function save() {
   }
 }
 
-async function deactivate(row: Row) {
-  if (!canWrite.value || !window.confirm(`Nonaktifkan ${row.nama_toner}?`))
-    return;
+async function toggleActive(row: Row) {
+  if (!canWrite.value) return;
+  const nextStatus = !row.aktif;
+  if (!window.confirm(`${nextStatus ? "Aktifkan" : "Nonaktifkan"} ${row.nama_toner}?`)) return;
   try {
-    await request(`/toner/${row.id}`, { method: "DELETE" });
-    successMessage.value = "Toner berhasil dinonaktifkan.";
+    await request(`/toner/${row.id}`, {
+      method: "PUT",
+      body: { aktif: nextStatus },
+    });
+    successMessage.value = `Toner berhasil ${nextStatus ? "diaktifkan" : "dinonaktifkan"}.`;
     await loadRows();
   } catch (error) {
-    errorMessage.value = message(error, "Toner gagal dinonaktifkan.");
-  }
-}
-
-async function hardDelete(row: Row) {
-  if (
-    !canWrite.value ||
-    row.boleh_hapus_permanen === false ||
-    !window.confirm(`Hapus permanen ${row.nama_toner}?`)
-  )
-    return;
-  try {
-    await request(`/toner/${row.id}/permanent`, { method: "DELETE" });
-    successMessage.value = "Toner berhasil dihapus permanen.";
-    await loadRows();
-  } catch (error) {
-    errorMessage.value = message(error, "Toner gagal dihapus permanen.");
+    errorMessage.value = message(error, `Toner gagal ${nextStatus ? "diaktifkan" : "dinonaktifkan"}.`);
   }
 }
 
@@ -235,20 +223,11 @@ onMounted(loadRows);
             />
             <UButton
               size="xs"
-              color="warning"
+              :color="row.original.aktif ? 'warning' : 'success'"
               variant="ghost"
-              icon="i-lucide-power"
-              aria-label="Nonaktifkan"
-              @click="deactivate(row.original)"
-            />
-            <UButton
-              v-if="row.original.boleh_hapus_permanen !== false"
-              size="xs"
-              color="error"
-              variant="ghost"
-              icon="i-lucide-trash-2"
-              aria-label="Hapus permanen"
-              @click="hardDelete(row.original)"
+              :icon="row.original.aktif ? 'i-lucide-power-off' : 'i-lucide-power'"
+              :aria-label="row.original.aktif ? 'Nonaktifkan' : 'Aktifkan'"
+              @click="toggleActive(row.original)"
             />
           </div>
           <span
