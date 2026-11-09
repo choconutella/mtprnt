@@ -67,7 +67,15 @@ function formatUnit(item) {
     item.lokasi_jenis === "transit" ? "Dalam Surat Tugas" :
     item.lokasi_jenis === "internal" ? "Internal" : "Nonaktif";
   const { surat_tugas, ...unit } = item;
-  return { ...unit, status_operasional };
+  return {
+    ...unit,
+    model_id: item.master_printer_model?.id || item.model_id,
+    gudang_id: item.master_gudang?.id || item.gudang_id,
+    account_id: item.master_account?.id || item.account_id,
+    customer_id: item.master_customer?.id || item.customer_id,
+    kontrak_id: item.master_kontrak?.id || item.kontrak_id,
+    status_operasional
+  };
 }
 
 function konflik(pesan) {
@@ -158,14 +166,31 @@ const lihat = otorisasi("sales", "sales-admin", "kepala-teknisi", "teknisi", "wa
 
 async function daftar(req, res, fixedStatus) {
   const query = listSchema.parse(req.query);
+  const [kategori, model, gudang, account, customer] = await Promise.all([
+    query.kategori_id ? prisma.master_printer_kategori.findUnique({ where: { id: query.kategori_id }, select: { kode_kategori: true } }) : null,
+    query.model_id ? prisma.master_printer_model.findUnique({ where: { id: query.model_id }, select: { kode_model: true } }) : null,
+    query.gudang_id ? prisma.master_gudang.findUnique({ where: { id: query.gudang_id }, select: { kode_gudang: true } }) : null,
+    query.account_id ? prisma.master_account.findUnique({ where: { id: query.account_id }, select: { kode_account: true } }) : null,
+    query.customer_id ? prisma.master_customer.findUnique({ where: { id: query.customer_id }, select: { kode_customer: true } }) : null
+  ]);
+  const missingReference = [
+    [query.kategori_id, kategori],
+    [query.model_id, model],
+    [query.gudang_id, gudang],
+    [query.account_id, account],
+    [query.customer_id, customer]
+  ].some(([requested, resolved]) => requested && !resolved);
+  if (missingReference) {
+    return sukses(res, "Printer berhasil diambil.", { items: [], meta: { halaman: query.halaman, batas: query.batas, total: 0 } });
+  }
   const where = {
     ...(fixedStatus || query.status ? { status: fixedStatus || query.status } : {}),
     ...(query.lokasi && query.lokasi !== "stok" ? { lokasi_jenis: query.lokasi } : {}),
-    ...(query.model_id ? { model_id: query.model_id } : {}),
-    ...(query.kategori_id ? { master_printer_model: { kategori_id: query.kategori_id } } : {}),
-    ...(query.gudang_id ? { gudang_id: query.gudang_id } : {}),
-    ...(query.account_id ? { account_id: query.account_id } : {}),
-    ...(query.customer_id ? { customer_id: query.customer_id } : {})
+    ...(model ? { model_id: model.kode_model } : {}),
+    ...(kategori ? { master_printer_model: { kategori_id: kategori.kode_kategori } } : {}),
+    ...(gudang ? { gudang_id: gudang.kode_gudang } : {}),
+    ...(account ? { account_id: account.kode_account } : {}),
+    ...(customer ? { customer_id: customer.kode_customer } : {})
   };
   if (query.cari) {
     where.OR = ["mp_no", "serial_number"].map((key) => ({ [key]: { contains: query.cari, mode: "insensitive" } }));

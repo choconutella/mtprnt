@@ -1,5 +1,14 @@
 # Changelogs
 
+## 2026-11-09
+
+### Changed
+
+- Membangun ulang container `frontend` dan `service` serta memperbarui export image `multiprint-frontend.tar` dan `multiprint-service.tar`.
+- Memperbaiki pemilihan printer pada tab Items Surat Tugas yang dibuka dari `/tiket`; popup memuat ulang opsi dan filter UUID gudang pada API printer kini diterjemahkan ke kode gudang internal.
+- Menyimpan item printer yang ditambahkan saat edit Surat Tugas berstatus progress dan menampilkan kembali item pemakaian saat Surat Tugas dibuka ulang.
+- Item Surat Tugas dapat ditambahkan saat pending; pilihan printer tidak lagi dikosongkan ketika Mode atau jenis tugas berubah dan tetap tampil saat Surat Tugas dibuka ulang.
+
 ## 2026-11-08
 
 ### Database and API compatibility

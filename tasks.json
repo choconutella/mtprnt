@@ -3,7 +3,7 @@
     "name": "multiprint",
     "summary": "Frontend Nuxt/Vue/Nuxt UI untuk operasi printer, tiket, surat tugas, stok, dan master data yang mengonsumsi service existing."
   },
-  "updated_at": "2026-11-08T14:40:00Z",
+  "updated_at": "2026-11-09T00:00:00Z",
   "active_task_id": "task-003",
   "tasks": [
     {
@@ -140,6 +140,8 @@
         "service/src/modules/account.routes.js",
         "service/src/modules/tiket.routes.js",
         "service/src/modules/pengguna.routes.js",
+        "service/src/modules/printer.routes.js",
+        "service/src/modules/surat-tugas-baru.routes.js",
         "docs/contracts/README.md",
         "frontend/app/pages/stok/toner.vue",
         "frontend/app/components/stock/StockTonerPage.vue",
@@ -217,7 +219,10 @@
         "Memusatkan CRUD Unit Printer di /stok/printer, menghapus Unit Printer dari navigasi Master Data, dan mengarahkan route lama /master/printer ke halaman stok.",
         "Menambahkan quick-create Model Printer dan Gudang dari form Tambah Unit Printer, dengan pemilihan otomatis setelah berhasil dibuat.",
         "Menambahkan quick-create Kategori Printer dari modal Buat Model Printer, dengan pemilihan otomatis setelah kategori berhasil dibuat.",
-        "Menambahkan halaman /surat-tugas berbasis Nuxt UI dengan daftar, pencarian, pembuatan dari tiket atau mandiri, detail bertab, penugasan PIC, hasil unit, pemakaian barang, dan kontrol workflow sesuai role/status."
+        "Menambahkan halaman /surat-tugas berbasis Nuxt UI dengan daftar, pencarian, pembuatan dari tiket atau mandiri, detail bertab, penugasan PIC, hasil unit, pemakaian barang, dan kontrol workflow sesuai role/status.",
+        "Memuat ulang opsi printer saat popup Tambah Item dibuka dan memperbaiki penerjemahan filter UUID master data pada GET /printer agar opsi di tab Items /tiket muncul sesuai gudang; URL yang dilaporkan terverifikasi mengembalikan 2 unit dengan UUID gudang yang sama.",
+        "Menyimpan printer tambahan melalui endpoint pemakaian, menerjemahkan UUID item dan gudang ke kode internal, serta memuat relasi master agar item tampil saat ST dibuka ulang.",
+        "Mengizinkan penambahan item pada ST pending sebelum Mulai dan menghapus pengosongan pilihan printer saat Mode atau jenis tugas berubah."
         ,"Membatasi checkbox Sendiri pada modal Tambah Customer; modal Edit Customer tetap memakai pilihan Billing."
         ,"Menghapus menu Lokasi Customer dan Lokasi dari navigasi, lalu menempatkan Master Gudang selevel dengan Sparepart di Master Data."
         ,"Memformat pilihan Model pada modal Tambah Unit Printer di StockPrinterPage dengan merek, nama model, dan kategori printer; perubahan sebelumnya hanya menyentuh komponen Unit Printer lama."
@@ -245,6 +250,7 @@
         ,"Menggabungkan service frontend ke compose root dengan context ./frontend dan port default 3000; service ui existing tetap dipertahankan."
         ,"Menghapus compose frontend yang sudah tidak diperlukan, membuat ulang container frontend dan service dari compose root, serta mengekspor image ke multiprint-frontend.tar dan multiprint-service.tar."
         ,"Membangun ulang image frontend dan service pada 2026-11-06, membuat ulang container dari compose root, lalu menimpa export multiprint-frontend.tar dan multiprint-service.tar."
+        ,"Membangun ulang image frontend dan service pada 2026-11-09, membuat ulang container dari compose root, lalu menimpa export multiprint-frontend.tar dan multiprint-service.tar."
         ,"Menghapus seluruh aksi aktif Siap Cetak dari endpoint service, frontend baru, dan UI lama; workflow melanjutkan dari progress tanpa membuat status ready_to_print baru. Enum legacy dipertahankan untuk kompatibilitas data lama."
         ,"Mengubah label aksi Konfirmasi Serah menjadi Konfirmasi Pengembalian pada frontend baru dan UI lama."
         ,"Menambahkan tab Unit Printer pada popup Edit Surat Tugas dan menyatukan penyimpanan hasil per unit ke tombol Simpan agar Maintenance dapat memenuhi validasi Selesai Pekerjaan."
@@ -270,7 +276,7 @@
       "blockers": [],
       "owner": "codex",
       "created_at": "2026-11-01T00:00:00Z",
-      "updated_at": "2026-11-01T00:00:00Z"
+      "updated_at": "2026-11-09T00:00:00Z"
     },
     {
       "id": "task-004",

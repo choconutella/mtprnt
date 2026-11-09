@@ -184,8 +184,9 @@ const formItemChoices = computed(() =>
     : options.spareparts,
 );
 const canAddFormItem = computed(
-  () => !!editing.value && editing.value.status === "progress"
-    && ["admin", "teknisi"].includes(role.value),
+  () => !!editing.value && ["pending", "progress"].includes(editing.value.status)
+    && ["admin", "kepala_teknisi", "teknisi"].includes(role.value)
+    && !editing.value.konfirmasi_keluar_pada,
 );
 const printerIsServiceObject = computed(() => form.jenis_tugas === "maintenance"
   || (form.jenis_tugas === "on_site_service" && !!form.tiket_id));
@@ -197,12 +198,14 @@ const displayedItems = computed(() => [
     jumlah_pakai: 1,
     keterangan: "",
     printer_id: id,
+    fixed: false,
     line_id: editing.value?.surat_tugas_printer?.find((line: Row) => line.printer_id === id || line.mp_no === options.printers.find((row) => row.id === id)?.mp_no)?.id,
+    existing: !!editing.value?.pemakaian_barang_surat_tugas?.some((line: Row) => line.jenis_barang === "printer" && line.master_printer?.id === id),
   }))),
   ...(form.jenis_tugas === "terima_printer_baru" && form.new_mp_no
     ? [{ jenis_barang: "printer", item: form.new_mp_no, gudang: "-", jumlah_pakai: 1, keterangan: "", fixed: true }]
     : []),
-  ...formItems.value.filter((item) => form.jenis_tugas !== "maintenance" || item.jenis_barang !== "printer"),
+  ...formItems.value.filter((item) => item.jenis_barang !== "printer"),
 ]);
 const categoryToKinds: Record<string, string[]> = {
   delivery: [
@@ -305,7 +308,7 @@ function printerLocation(row: Row) {
 }
 const printerItems = computed(() =>
   availablePrinters.value
-    .filter((row) => form.jenis_tugas !== "maintenance" || selectedTicket.value || (row.lokasi_jenis === "gudang" && row.gudang_id === form.gudang_id))
+    .filter((row) => form.printer_ids.includes(row.id) || form.jenis_tugas !== "maintenance" || selectedTicket.value || (row.lokasi_jenis === "gudang" && row.gudang_id === form.gudang_id))
     .map((row) => ({
     label: `${row.mp_no} · ${row.master_printer_model?.nama_model || row.nama_model || "-"}`,
     value: row.id,
@@ -515,9 +518,10 @@ async function openEdit(row: Row) {
         serial_number: line.serial_number,
       },
     );
+    const usedPrinters = (item.pemakaian_barang_surat_tugas || []).filter((line: Row) => line.jenis_barang === "printer").map((line: Row) => line.master_printer).filter(Boolean);
     options.printers = [
       ...new Map(
-        [...printerRows, ...options.printers].filter((value) => value?.id).map((value) => [value.id, value]),
+        [...printerRows, ...usedPrinters, ...options.printers].filter((value) => value?.id).map((value) => [value.id, value]),
       ).values(),
     ];
     Object.assign(form, {
@@ -535,7 +539,7 @@ async function openEdit(row: Row) {
       sumber: item.sumber || "",
       new_mp_no: item.surat_tugas_printer?.[0]?.mp_no || "",
       new_model_id: item.surat_tugas_printer?.[0]?.model_id || "",
-      printer_ids: printerRows.map((value: Row) => value.id).filter(Boolean),
+      printer_ids: [...printerRows, ...usedPrinters].map((value: Row) => value.id).filter(Boolean),
       hasil: item.hasil || "",
     });
     formTab.value = "detail";
@@ -592,15 +596,11 @@ function selectCustomer(customerId: string) {
   form.account_id = account?.kode_account || customer?.master_account?.kode_account || "";
 }
 function changeKind() {
-  form.printer_ids = [];
   if (form.jenis_tugas !== "kirim_kontrak") form.kontrak_id = "";
-  selectTicketObject();
+  if (!form.printer_ids.length) selectTicketObject();
 }
 function changeWarehouse() {
-  if (form.jenis_tugas === "maintenance" && !selectedTicket.value) {
-    form.printer_ids = [];
-    options.printers = [];
-  }
+  if (form.jenis_tugas === "maintenance" && !selectedTicket.value) printerSearch.value = "";
 }
 function payload() {
   const ticket = selectedTicket.value;
@@ -664,10 +664,12 @@ function addFormItem() {
   errorMessage.value = "";
   addItemOpen.value = false;
 }
-function openAddItem() {
+async function openAddItem() {
   pendingPrinterIds.value = [...form.printer_ids];
   addItemKind.value = printerIsServiceObject.value ? "toner" : "printer";
+  printerSearch.value = "";
   addItemOpen.value = true;
+  if (addItemKind.value === "printer") await loadPrinters("", true);
 }
 function confirmAddItem() {
   if (addItemKind.value === "printer") {
@@ -696,6 +698,7 @@ function formItemName(item: Row) {
   return (
     item.item ||
     item.label ||
+    item.master_printer?.mp_no ||
     item.master_toner?.nama_toner ||
     item.master_suku_cadang?.nama_suku_cadang ||
     item.toner_id || item.suku_cadang_id || "-"
@@ -806,6 +809,20 @@ async function saveEdit() {
     for (const lineId of removedLineIds) {
       await request(`/surat-tugas/${editing.value.id}/printer/${lineId}`, { method: "DELETE" });
       removedPrinterLineIds.value = removedPrinterLineIds.value.filter((id) => id !== lineId);
+    }
+    const savedPrinterIds = new Set([
+      ...(surat.surat_tugas_printer || []).map((line: Row) => line.printer_id),
+      ...(surat.pemakaian_barang_surat_tugas || []).filter((line: Row) => line.jenis_barang === "printer").map((line: Row) => line.master_printer?.id),
+    ]);
+    const newPrinterIds = form.printer_ids.filter((id) => !savedPrinterIds.has(id));
+    if (newPrinterIds.length && !canAddFormItem.value) throw new Error("Item printer tidak dapat ditambahkan pada status Surat Tugas ini.");
+    for (const id of newPrinterIds) {
+      const printer = options.printers.find((row) => row.id === id);
+      if (!printer || !form.gudang_id) throw new Error("Pilih printer dan gudang sebelum menyimpan item.");
+      await request(`/surat-tugas/${editing.value.id}/pemakaian`, {
+        method: "POST",
+        body: { gudang_id: form.gudang_id, jenis_barang: "printer", printer_id: id, jumlah_pakai: 1 },
+      });
     }
     await saveFormItems(editing.value.id);
     await saveUnitResults(surat, removedLineIds);
@@ -978,11 +995,6 @@ watch(printerSearch, (value) => {
   if (printerSearchTimer) clearTimeout(printerSearchTimer);
   printerLoading.value = true;
   printerSearchTimer = setTimeout(() => loadPrinters(value), 300);
-});
-watch(() => form.mode, () => {
-  if (!selectedTicket.value) return;
-  form.printer_ids = [];
-  selectTicketObject();
 });
 watch(
   [() => form.customer_id, () => form.gudang_id, () => form.jenis_tugas],
@@ -1512,7 +1524,7 @@ watch(
                 <template #keterangan-cell="{ row }">{{ row.original.keterangan || '-' }}</template>
                 <template #actions-cell="{ row }">
                   <UButton
-                    v-if="row.original.printer_id"
+                    v-if="row.original.printer_id && !row.original.existing"
                     type="button"
                     size="xs"
                     color="error"
@@ -1545,7 +1557,7 @@ watch(
             />
             <div class="flex justify-end">
               <UButton
-                v-if="editing?.status !== 'solved' && (!printerIsServiceObject || canAddFormItem)"
+                v-if="editing?.status !== 'solved' && (!editing || canAddFormItem)"
                 type="button"
                 color="primary"
                 variant="outline"

@@ -60,7 +60,7 @@ const pemakaianSchema = z.object({
   jumlah_pakai: z.number().positive(),
   keterangan: z.string().optional().nullable()
 });
-const assetInclude = { surat_tugas_printer: { include: { master_printer: true, master_printer_model: true } }, teknisi_surat_tugas: { include: { master_pengguna: true } }, tiket: true, master_account: true, master_customer: true, master_gudang_baru: true, pemakaian_barang_surat_tugas: true };
+const assetInclude = { surat_tugas_printer: { include: { master_printer: true, master_printer_model: true } }, teknisi_surat_tugas: { include: { master_pengguna: true } }, tiket: true, master_account: true, master_customer: true, master_gudang_baru: true, pemakaian_barang_surat_tugas: { include: { master_gudang: true, master_printer: true, master_toner: true, master_suku_cadang: true } } };
 
 function reject(message, statusCode = 409) {
   throw Object.assign(new Error(message), { statusCode });
@@ -542,35 +542,37 @@ router.post("/:id/pemakaian", izin("surat_tugas", "update", "kepala-teknisi", "t
   const result = await prisma.$transaction(async (tx) => {
     const surat = await loadNew(tx, req.params.id);
     if (!surat) reject("ST tidak ditemukan.", 404);
-    await requireAssigned(tx, req, surat.id);
-    if (surat.status !== "progress") reject("Item hanya bisa ditambahkan saat surat tugas progress.");
+    if (!(surat.status === "pending" && role(req) === "kepala_teknisi")) await requireAssigned(tx, req, surat.id);
+    if (!["pending", "progress"].includes(surat.status)) reject("Item hanya bisa ditambahkan saat surat tugas pending atau progress.");
     if (surat.konfirmasi_keluar_pada) reject("Item tidak dapat diubah setelah Konfirmasi Keluar.");
     if (body.jenis_barang === "toner" && !body.toner_id) reject("Pilih toner.", 422);
     if (body.jenis_barang === "suku_cadang" && !body.suku_cadang_id) reject("Pilih sparepart.", 422);
     if (body.jenis_barang === "printer" && !body.printer_id) reject("Pilih printer.", 422);
+    const gudang = await tx.master_gudang.findUnique({ where: { id: body.gudang_id } });
+    if (!gudang?.aktif) reject("Gudang tidak aktif.", 422);
+    const data = { ...body, gudang_id: gudang.kode_gudang };
     if (body.jenis_barang === "printer") {
       if (!PENGIRIMAN_PRINTER.includes(surat.jenis_tugas)) reject("Printer hanya dapat ditambahkan sebagai item pada jenis pengiriman.", 422);
       const printer = await tx.master_printer.findUnique({ where: { id: body.printer_id } });
-      if (!printer || printer.lokasi_jenis !== "gudang" || printer.kondisi !== "ready" || printer.surat_tugas_aktif_id) reject("Printer harus READY di gudang.", 422);
+      if (!printer || printer.lokasi_jenis !== "gudang" || printer.gudang_id !== gudang.kode_gudang || printer.kondisi !== "ready" || printer.surat_tugas_aktif_id) reject("Printer harus READY di gudang yang dipilih.", 422);
+      data.printer_id = printer.mp_no;
       const reserved = await tx.master_printer.updateMany({
         where: { id: printer.id, lokasi_jenis: "gudang", kondisi: "ready", status: "available", surat_tugas_aktif_id: null },
         data: { status: "reserved", surat_tugas_aktif_id: surat.id, tanggal_diperbarui: new Date() }
       });
       if (reserved.count !== 1) reject("Unit printer sudah dipakai Surat Tugas lain.", 409);
     } else {
-      const [gudang, master] = await Promise.all([
-        tx.master_gudang.findUnique({ where: { id: body.gudang_id } }),
-        body.jenis_barang === "toner"
+      const master = body.jenis_barang === "toner"
           ? tx.master_toner.findUnique({ where: { id: body.toner_id } })
-          : tx.master_suku_cadang.findUnique({ where: { id: body.suku_cadang_id } })
-      ]);
-      if (!gudang?.aktif) reject("Gudang tidak aktif.", 422);
-      if (!master?.aktif) reject("Item tidak aktif atau tidak ditemukan.", 422);
+          : tx.master_suku_cadang.findUnique({ where: { id: body.suku_cadang_id } });
+      const resolvedMaster = await master;
+      if (!resolvedMaster?.aktif) reject("Item tidak aktif atau tidak ditemukan.", 422);
       const stockField = body.jenis_barang === "toner" ? "toner_id" : "suku_cadang_id";
-      const stock = await tx[body.jenis_barang === "toner" ? "stok_toner" : "stok_suku_cadang"].findFirst({ where: { gudang_id: body.gudang_id, [stockField]: body[stockField] } });
+      data[stockField] = body.jenis_barang === "toner" ? resolvedMaster.kode_toner : resolvedMaster.kode_suku_cadang;
+      const stock = await tx[body.jenis_barang === "toner" ? "stok_toner" : "stok_suku_cadang"].findFirst({ where: { gudang_id: gudang.kode_gudang, [stockField]: data[stockField] } });
       if (!stock || Number(stock.jumlah_tersedia) < Number(body.jumlah_pakai)) reject("Stok item tidak mencukupi.", 422);
     }
-    return tx.pemakaian_barang_surat_tugas.create({ data: { surat_tugas_id: surat.id, ...body } });
+    return tx.pemakaian_barang_surat_tugas.create({ data: { surat_tugas_id: surat.id, ...data } });
   });
   return sukses(res, "Pemakaian barang berhasil ditambahkan.", result, 201);
 }));
@@ -579,14 +581,14 @@ router.delete("/:id/pemakaian/:pemakaianId", izin("surat_tugas", "update", "kepa
   const result = await prisma.$transaction(async (tx) => {
     const surat = await loadNew(tx, req.params.id);
     if (!surat) reject("ST tidak ditemukan.", 404);
-    await requireAssigned(tx, req, surat.id);
-    if (surat.status !== "progress") reject("Item hanya bisa dihapus saat surat tugas progress.");
+    if (!(surat.status === "pending" && role(req) === "kepala_teknisi")) await requireAssigned(tx, req, surat.id);
+    if (!["pending", "progress"].includes(surat.status)) reject("Item hanya bisa dihapus saat surat tugas pending atau progress.");
     if (surat.konfirmasi_keluar_pada) reject("Item tidak dapat diubah setelah Konfirmasi Keluar.");
     const item = await tx.pemakaian_barang_surat_tugas.findFirst({ where: { id: req.params.pemakaianId, surat_tugas_id: surat.id } });
     if (!item) reject("Item Surat Tugas tidak ditemukan.", 404);
     if (item.jenis_barang === "printer") {
       const released = await tx.master_printer.updateMany({
-        where: { id: item.printer_id, status: "reserved", surat_tugas_aktif_id: surat.id },
+        where: { mp_no: item.printer_id, status: "reserved", surat_tugas_aktif_id: surat.id },
         data: { status: "available", surat_tugas_aktif_id: null, tanggal_diperbarui: new Date() }
       });
       if (released.count !== 1) reject("Reservasi printer tidak dapat dilepas.", 409);
